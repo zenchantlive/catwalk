@@ -1,12 +1,16 @@
 from typing import Optional, Dict, Any
 
+# Global dictionary for in-memory caching to persist across requests (since CacheService is transient)
+# In production, use Redis or a Database.
+GLOBAL_MEMORY_CACHE: Dict[str, Any] = {}
+
 # Service responsible for caching analysis results to improve performance and reduce costs
 class CacheService:
     # Initialize the cache service
     def __init__(self) -> None:
         # Placeholder for DB or Redis connection
-        # For now, we can use a simple in-memory dictionary for development
-        self._memory_cache: Dict[str, Any] = {}
+        # Use the global dictionary for development persistence
+        self._memory_cache = GLOBAL_MEMORY_CACHE
 
     # Retrieve a cached analysis result by repository URL
     async def get_analysis(self, repo_url: str) -> Optional[Dict[str, Any]]:

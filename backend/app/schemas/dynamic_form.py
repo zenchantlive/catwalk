@@ -41,9 +41,14 @@ class FormSchema(BaseModel):
     """
     # Title of the form (e.g., "Configure OpenAI")
     title: str = Field(..., description="The header title of the form")
-    
+
     # Brief explanation of what the form is for
     description: str = Field(..., description="Instructional text under the title")
-    
+
     # Ordered list of fields to display
     fields: List[FormField] = Field(..., description="List of fields to render in order")
+
+    # MCP server configuration metadata (tools, resources, prompts, package)
+    # This metadata will be included in schedule_config.mcp_config when creating deployment
+    # The frontend should pass this through without modification
+    mcp_config: Any | None = Field(None, description="MCP server configuration (tools, package, etc.)")
