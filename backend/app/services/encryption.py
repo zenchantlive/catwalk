@@ -1,4 +1,4 @@
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 from app.core.config import settings
 
 class EncryptionService:
@@ -57,12 +57,19 @@ class EncryptionService:
         Returns:
             str: The original plain text string.
                  Returns empty string if input is empty.
+
+        Raises:
+            ValueError: If the token is invalid or cannot be decrypted.
         """
         # Handle empty input case gracefully
         if not token:
             return ""
-            
-        # 1. Encode token string to bytes
-        # 2. Decrypt using Fernet
-        # 3. Decode result bytes back to UTF-8 string
-        return self._fernet.decrypt(token.encode()).decode()
+        
+        try:
+            # 1. Encode token string to bytes
+            # 2. Decrypt using Fernet
+            # 3. Decode result bytes back to UTF-8 string
+            return self._fernet.decrypt(token.encode()).decode()
+        except InvalidToken:
+            # Raise a clear error if decryption fails
+            raise ValueError("Invalid token: Decryption failed")
