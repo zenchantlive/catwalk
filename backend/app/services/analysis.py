@@ -2,12 +2,14 @@ import os
 from typing import Optional, Dict, Any
 from openai import AsyncOpenAI
 
+from app.core.config import settings
+
 # Service responsible for analyzing GitHub repositories using Claude via OpenRouter
 class AnalysisService:
     # Initialize the service with the OpenRouter client
     def __init__(self) -> None:
         # Get the API key from environment variables
-        api_key: Optional[str] = os.getenv("OPENROUTER_API_KEY")
+        api_key: Optional[str] = settings.OPENROUTER_API_KEY
         if not api_key:
             # Handle missing API key case (could raise error or log warning)
             print("Warning: OPENROUTER_API_KEY not found in environment variables.")
@@ -19,8 +21,8 @@ class AnalysisService:
         )
         
         # Define the model to use (Claude Haiku 4.5)
-        self.model: str = "anthropic/claude-haiku-4-5"
-
+        self.model: str = "anthropic/claude-haiku-4.5"
+### USER RULE : NEVER EVER CHANGE THE MODEL FROM CLAUDE HAIKU 4.5 UNLESS SPECIFICALLY INSTRUCTED TO DO SO
     # Analyze a GitHub repository to extract MCP configuration
     async def analyze_repo(self, repo_url: str) -> Dict[str, Any]:
         """

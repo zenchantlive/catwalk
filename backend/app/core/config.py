@@ -18,6 +18,13 @@ class Settings(BaseSettings):
     # Security Configuration
     # Secret key for Fernet encryption. Must be a valid 32-byte url-safe base64 string.
     ENCRYPTION_KEY: Optional[str] = None
+
+    # LLM Provider Configuration
+    # key for OpenRouter to access Claude/OpenAI/etc.
+    OPENROUTER_API_KEY: Optional[str] = None
+
+    # Public URL for generating connection strings (e.g. https://xyz.ngrok-free.app)
+    PUBLIC_URL: Optional[str] = None
     
     # Pydantic Configuration
     model_config = SettingsConfigDict(
