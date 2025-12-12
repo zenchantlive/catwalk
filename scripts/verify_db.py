@@ -19,12 +19,13 @@ async def verify():
     # For verification script, we assume settings are loaded from .env
     from app.core.config import settings
     # Ensure we have a key for the test run if none in env
-    if not settings.ENCRYPTION_KEY:
+    key = settings.ENCRYPTION_KEY
+    if not key:
         from cryptography.fernet import Fernet
-        settings.ENCRYPTION_KEY = Fernet.generate_key().decode()
-        print(f"Generated temporary key: {settings.ENCRYPTION_KEY}")
+        key = Fernet.generate_key().decode()
+        print(f"Generated temporary key for verification script.")
 
-    encryption_service = EncryptionService()
+    encryption_service = EncryptionService(key=key)
     secret_value = "sk-test-1234567890"
     encrypted_secret = encryption_service.encrypt(secret_value)
     
