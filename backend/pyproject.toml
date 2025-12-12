@@ -1,0 +1,22 @@
+[project]
+name = "mcp-remote-backend"
+version = "0.1.0"
+description = "Backend for MCP Remote Platform"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "openai>=2.11.0",
+    "uvicorn[standard]",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

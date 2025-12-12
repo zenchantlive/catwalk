@@ -1,0 +1,73 @@
+import os
+from typing import Optional, Dict, Any
+from openai import AsyncOpenAI
+
+# Service responsible for analyzing GitHub repositories using Claude via OpenRouter
+class AnalysisService:
+    # Initialize the service with the OpenRouter client
+    def __init__(self) -> None:
+        # Get the API key from environment variables
+        api_key: Optional[str] = os.getenv("OPENROUTER_API_KEY")
+        if not api_key:
+            # Handle missing API key case (could raise error or log warning)
+            print("Warning: OPENROUTER_API_KEY not found in environment variables.")
+        
+        # Initialize the AsyncOpenAI client pointing to OpenRouter
+        self.client: AsyncOpenAI = AsyncOpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=api_key
+        )
+        
+        # Define the model to use (Claude Haiku 4.5)
+        self.model: str = "anthropic/claude-haiku-4-5"
+
+    # Analyze a GitHub repository to extract MCP configuration
+    async def analyze_repo(self, repo_url: str) -> Dict[str, Any]:
+        """
+        Analyzes a GitHub repository to extract MCP configuration using Claude Haiku 4.5.
+        
+        Args:
+            repo_url: The URL of the GitHub repository to analyze.
+            
+        Returns:
+            A dictionary containing the extracted configuration (package name, env vars, etc.).
+            
+        Raises:
+            Exception: If the analysis fails or returns invalid data.
+        """
+        from app.prompts.analysis_prompt import ANALYSIS_SYSTEM_PROMPT
+        
+        try:
+            # Construct the tools list with the web search tool
+            tools = [
+                {
+                    "type": "web_search_20250305",
+                    "name": "web_search"
+                }
+            ]
+            
+            # Call the OpenRouter API
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT},
+                    {"role": "user", "content": f"Analyze this MCP server repository: {repo_url}"}
+                ],
+                tools=tools,
+                # Enforce JSON output for cleaner parsing (if supported by model/provider)
+                # otherwise rely on instructions. Haiku 4.5 usually follows instructions well.
+                # response_format={"type": "json_object"} 
+            )
+            
+            # Extract the content from the response
+            content = response.choices[0].message.content
+            
+            # TODO: Add robust JSON parsing/cleaning here if the model adds markdown ticks
+            # For now, return the raw content or parsed dict if possible
+            # We assume the model follows the instruction to output JSON.
+            return {"raw_analysis": content}
+            
+        except Exception as e:
+            # Log the error (in a real app) and re-raise or return error status
+            print(f"Error analyzing repo {repo_url}: {str(e)}")
+            return {"error": str(e), "status": "failed"}
