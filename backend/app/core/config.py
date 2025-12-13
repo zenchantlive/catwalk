@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
 from typing import Optional
 
 class Settings(BaseSettings):
@@ -9,11 +10,26 @@ class Settings(BaseSettings):
     # General project metadata
     PROJECT_NAME: str = "Catwalk Live"
     API_V1_STR: str = "/api"
-    
+
     # Database Configuration
     # Default to local SQLite with aiosqlite driver for async support
     # Production should override this with a PostgreSQL URL (e.g., Supabase)
     DATABASE_URL: str = "sqlite+aiosqlite:///./local.db"
+
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def fix_postgres_url(cls, v: str) -> str:
+        """
+        Convert Fly.io's postgres:// URL to postgresql+psycopg:// for SQLAlchemy async.
+
+        Fly.io provides DATABASE_URL as: postgres://user:pass@host/db?sslmode=disable
+        SQLAlchemy 2.0+ with psycopg3 needs: postgresql+psycopg://user:pass@host/db?sslmode=disable
+
+        psycopg3 (unlike asyncpg) supports all Fly.io SSL parameters natively.
+        """
+        if v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql+psycopg://", 1)
+        return v
     
     # Security Configuration
     # Secret key for Fernet encryption. Must be a valid 32-byte url-safe base64 string.
