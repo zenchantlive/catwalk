@@ -6,8 +6,8 @@ class RegistryServerCapabilities(BaseModel):
     connectable: bool
 
 class RegistryServerTrust(BaseModel):
-    isOfficial: bool
-    lastUpdated: str
+    is_official: bool
+    last_updated: str
 
 class RegistryServer(BaseModel):
     id: str  # e.g. "ai.exa/exa"

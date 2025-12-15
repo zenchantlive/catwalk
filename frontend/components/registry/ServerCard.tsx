@@ -30,7 +30,7 @@ export function ServerCard({ server }: ServerCardProps) {
                         <h3 className="font-semibold text-lg text-white truncate" title={server.name}>
                             {server.name}
                         </h3>
-                        {server.trust.isOfficial && (
+                        {server.trust.is_official && (
                             <div className="text-blue-400" title="Official">
                                 <Badge variant="secondary" className="h-5 px-1.5 bg-blue-500/10 text-blue-400 border-blue-500/20 text-[10px]">
                                     <Check className="w-3 h-3 mr-1" />

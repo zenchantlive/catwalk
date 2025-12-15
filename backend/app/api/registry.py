@@ -6,7 +6,7 @@ from app.schemas.registry import RegistryServer, RegistrySearchParams
 router = APIRouter()
 
 def get_registry_service():
-    return RegistryService()
+    return RegistryService.get_instance()
 
 @router.get("/search", response_model=List[RegistryServer])
 async def search_registry(
