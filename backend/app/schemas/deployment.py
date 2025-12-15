@@ -18,6 +18,7 @@ class DeploymentResponse(DeploymentBase):
     created_at: datetime
     updated_at: datetime
     connection_url: str  # Computed field
+    error_message: Optional[str] = None
 
     class Config:
         from_attributes = True

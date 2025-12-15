@@ -26,6 +26,13 @@ class Deployment(Base):
     
     # Current status of the deployment (e.g., 'active', 'inactive', 'paused')
     status: Mapped[str] = mapped_column(String, default="inactive")
+
+    # Fly.io Machine ID (Phase 6)
+    # Stores the ID of the running container for this deployment
+    machine_id: Mapped[str] = mapped_column(String, nullable=True)
+
+    # Error message if the deployment failed
+    error_message: Mapped[str] = mapped_column(String, nullable=True)
     
     # Timestamp when the record was created, defaults to UTC now
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
