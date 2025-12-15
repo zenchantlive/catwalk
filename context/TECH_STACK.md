@@ -89,7 +89,7 @@
 - No complex orchestration (K8s) needed
 
 **MCP Bridge: mcp-proxy**
-- Open source stdio→SSE converter
+- Open source stdio→Streamable HTTP bridge (also supports legacy SSE)
 - We don't build this, just use it
 - Installed in base Docker image
 
@@ -518,9 +518,9 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install mcp-proxy
-RUN pip install --no-cache-dir mcp-proxy
+RUN pip install --no-cache-dir "mcp-proxy>=0.10.0"
 
-# Expose port for SSE
+# Expose port for HTTP
 EXPOSE 8080
 
 # Default command (overridden by Fly.io config)

@@ -1,7 +1,7 @@
 # Current Development Status
 
-**Last Updated**: 2025-12-13
-**Current Phase**: Phase 5.5 - Backend Production Deployment (COMPLETED ✅)
+**Last Updated**: 2025-12-15
+**Current Phase**: Phase 6 - MCP Server Container Deployment (WORKING ✅)
 
 ---
 
@@ -48,6 +48,12 @@
 - ✅ Docker image built and deployed successfully
 - ✅ High availability: 2 machines for zero-downtime deployments
 
+### Phase 6: MCP Server Container Deployment (WORKING ✅)
+- ✅ Backend creates Fly Machines for deployments (when `FLY_API_TOKEN` is set)
+- ✅ Shared MCP machine image runs `mcp-proxy` exposing Streamable HTTP at `GET/POST /mcp`
+- ✅ Backend forwards Streamable HTTP to the MCP machine over Fly private networking
+- ✅ End-to-end connectivity verified from backend → machine on `:8080`
+
 ---
 
 ## 🎉 What Works Right Now
@@ -83,24 +89,12 @@
 
 ## 🚧 What's NOT Working Yet
 
-### Phase 6: MCP Server Container Deployment
+### Hardening + UX (Next)
 
-**The Gap**: The backend creates deployment records but doesn't actually deploy MCP servers to Fly.io yet.
-
-**Current Behavior**:
-- Creates deployment in database ✅
-- Stores encrypted credentials ✅
-- Generates MCP endpoint URL ✅
-- Returns tools/resources to Claude ✅
-- **Missing**: Actual MCP server container running on Fly.io ❌
-
-**What Needs to Be Built**:
-1. `app/services/fly_deployment_service.py` - Fly Machines API client
-2. Container deployment logic using Fly Machines API
-3. Use `remote-mcp-pilot/deploy/Dockerfile` pattern
-4. Each deployment → separate Fly machine with MCP server
-5. Environment variable injection (encrypted credentials → container env)
-6. Health checks and auto-restart for MCP containers
+What remains (now that machines deploy and tool calls connect):
+- Health monitoring loop (beyond Fly restart policy) and better “unhealthy” status reporting
+- Clear progress/status surfaced to the frontend during machine start and package install
+- Stronger validation that analysis produced a runnable `mcp_config.package` for arbitrary repos
 
 ---
 
@@ -183,8 +177,17 @@ fly secrets set DATABASE_URL="postgres://user:pass@db-name.internal:5432/dbname"
 2. User enters credentials → Encrypted and stored ✅
 3. Deployment created → schedule_config.mcp_config stores tools ✅
 4. MCP endpoint → Returns configured tools from database ✅
-5. Tool call → Forwards to real MCP server (Phase 6 - NOT BUILT YET) ❌
+5. Tool call → Forwarded to deployed MCP machine (Streamable HTTP) ✅
 ```
+
+### Streamable HTTP Bridging Details (Production)
+
+- Claude-visible URL (stable): `https://catwalk-live-backend-dev.fly.dev/api/mcp/{deployment_id}`
+- Backend → machine (Fly private network): `http://{machine_id}.vm.catwalk-live-mcp-servers.internal:8080/mcp`
+- MCP machine endpoints (mcp-proxy):
+  - `GET /status` (health)
+  - `GET/POST /mcp` (Streamable HTTP)
+- When calling `/mcp` directly, mcp-proxy requires `Accept: application/json`
 
 ### Database Schema
 ```
@@ -215,7 +218,7 @@ Credential:
 - Cryptography (Fernet)
 - OpenRouter (Claude API)
 - openai>=1.0.0 (for AsyncOpenAI client)
-- sse-starlette>=2.0.0 (for SSE transport)
+- sse-starlette>=2.0.0 (legacy SSE transport; Streamable HTTP is primary)
 
 **Frontend**:
 - Next.js 15 (App Router)
@@ -233,45 +236,18 @@ Credential:
 
 ---
 
-## 🎯 Next Steps (Phase 6)
+## 🎯 Next Steps
 
-### Immediate: Implement Fly.io MCP Server Deployment
+### Immediate: Make “any GitHub link” predictable
 
-**Goal**: When a user creates a deployment, actually spin up an MCP server container on Fly.io
+Hard requirements for a repo to deploy successfully:
+1. Analysis must yield a runnable npm package name in `schedule_config.mcp_config.package`
+2. Deployed machine must receive `MCP_PACKAGE` and required env vars
+3. Package must run under `npx -y $MCP_PACKAGE` (current MVP assumption)
 
-**Implementation Steps**:
-
-1. **Create Fly Deployment Service** (`app/services/fly_deployment_service.py`):
-   ```python
-   class FlyDeploymentService:
-       async def create_machine(self, deployment_id: str, mcp_config: dict, credentials: dict):
-           """Create a Fly machine running the MCP server"""
-           # Use Fly Machines API
-           # Reference: https://fly.io/docs/machines/api/
-   ```
-
-2. **Adapt remote-mcp-pilot Dockerfile**:
-   - Base: `remote-mcp-pilot/deploy/Dockerfile` (Python + Node + mcp-proxy)
-   - Modify to accept dynamic MCP package name
-   - Inject credentials as environment variables
-   - Example: `CMD mcp-proxy --host=0.0.0.0 --port=8080 --pass-environment -- npx -y ${MCP_PACKAGE}`
-
-3. **Update Deployment Creation Flow**:
-   - After storing deployment in database
-   - Call `fly_deployment_service.create_machine()`
-   - Store machine ID in deployment record
-   - Update status to 'running' when healthy
-
-4. **Implement Health Checks**:
-   - Monitor MCP machine health
-   - Auto-restart on failures
-   - Update deployment status in database
-
-5. **Test End-to-End**:
-   - Create deployment via frontend
-   - Verify Fly machine spins up
-   - Connect Claude to MCP endpoint
-   - Call a tool and verify it works
+Operational checks (from within the backend machine):
+- `curl http://{machine_id}.vm.catwalk-live-mcp-servers.internal:8080/status`
+- `curl -H 'accept: application/json' -H 'content-type: application/json' -H 'MCP-Protocol-Version: 2025-06-18' http://{machine_id}...:8080/mcp --data '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{...}}'`
 
 ---
 
@@ -335,14 +311,13 @@ Credential:
 - [x] Database migrations applied
 - [x] Credentials stored encrypted
 
-### MCP Server Deployment (Phase 6) - NOT BUILT YET ❌
-- [ ] Create deployment → Fly machine spins up
-- [ ] MCP server starts in container
-- [ ] Claude connects to MCP endpoint
-- [ ] Tool calls work end-to-end
-- [ ] Credentials injected correctly
-- [ ] Health checks working
-- [ ] Auto-restart on failure
+### MCP Server Deployment (Phase 6) - WORKING ✅
+- [x] Create deployment → Fly machine spins up
+- [x] MCP server starts in container
+- [x] Claude connects to MCP endpoint
+- [x] Tool calls work end-to-end
+- [x] Credentials injected correctly
+- [ ] Health monitoring loop (future)
 
 ---
 
@@ -407,13 +382,13 @@ fly deploy --app catwalk-live-backend-dev
 
 ## 🎓 For Future Claude Sessions
 
-**You are currently at**: Phase 5.5 Complete, Phase 6 Not Started
+**You are currently at**: Phase 6 Working (Streamable HTTP end-to-end)
 
 **What works**: Full backend API on Fly.io, frontend locally, deployments stored in database
 
-**What doesn't work**: Actual MCP server containers on Fly.io (Phase 6)
+**What doesn't work**: Health monitoring loop + richer deployment progress (non-blocking)
 
-**Next task**: Implement `app/services/fly_deployment_service.py` to deploy MCP containers
+**Next task**: Harden analysis → `mcp_config.package` mapping + improve machine health/status reporting
 
 **Reference code**: `remote-mcp-pilot/deploy/` has working Fly.io deployment
 
