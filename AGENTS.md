@@ -54,15 +54,15 @@ fly postgres connect --app catwalk-live-db-dev
 ```bash
 # Frontend (connects to production backend)
 cd frontend
-npm install
-npm run dev                # Runs on localhost:3000
+bun install
+bun run dev                # Runs on localhost:3000
 
 # Type checking
-npm run typecheck
-npm run lint
+bun run typecheck
+bun run lint
 
 # Testing (Vitest)
-npm test
+bun run test
 
 # Backend (local development - WSL2/Linux required)
 cd backend
@@ -158,7 +158,8 @@ COPY docker-entrypoint.sh ./
 CMD ["./docker-entrypoint.sh"]
 
 # ✅ DO
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8080"]
+# Run migrations via Fly.io `release_command`, keep container CMD as uvicorn only.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
 ```
 
 ## Golden Snippets (Style Guide)
@@ -241,7 +242,7 @@ class FlyDeploymentService:
 ## Interaction Protocol
 1. **Build**: Implement high-quality, thoughtful solutions
 2. **Verify**: Write tests to verify critical logic, edge cases, and regressions
-3. **Confirm**: Run project-specific test commands (`npm test` or `pytest`) before completion
+3. **Confirm**: Run project-specific test commands (`bun run test` or `pytest`) before completion
 4. **Deploy**: Test changes on production backend when applicable
 
 ## Boundaries
@@ -340,6 +341,6 @@ fly ssh console --app catwalk-live-backend-dev
 - Reuse code as much as possible when logical to do so.
 - Write line by line comments to explain what the code does for humans and other AI's to understand.
 - Always use detailed commit messages. Ensure the information is clear and verbose.
-- Always run `npm run typecheck && npm run lint` (frontend) or `pytest && ruff check .` (backend) before assuming completion. Always fix warnings and errors.
+- Always run `bun run typecheck && bun run lint` (frontend) or `pytest && ruff check .` (backend) before assuming completion. Always fix warnings and errors.
 - **IMPORTANT**: Before starting any task, read `context/CURRENT_STATUS.md` and `CLAUDE.md` to understand where we are and what's already deployed.
-- **Phase 6 is the next task** - MCP server container deployment is not implemented yet.
+- Phase 6 (MCP server container deployment) is implemented; focus next on hardening, health monitoring, and UX polish.

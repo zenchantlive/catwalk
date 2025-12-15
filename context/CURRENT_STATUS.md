@@ -46,7 +46,7 @@
 - ✅ All API endpoints publicly accessible
 - ✅ Frontend configured to use production backend
 - ✅ Docker image built and deployed successfully
-- ✅ High availability: 2 machines for zero-downtime deployments
+- ✅ Always-on backend with `min_machines_running = 1`
 
 ### Phase 6: MCP Server Container Deployment (WORKING ✅)
 - ✅ Backend creates Fly Machines for deployments (when `FLY_API_TOKEN` is set)
@@ -75,7 +75,7 @@
 - Region: San Jose (sjc)
 
 ### Local Frontend
-**Running**: `npm run dev` at localhost:3000
+**Running**: `bun run dev` at localhost:3000
 **Backend Connection**: Configured via `.env.local` to point to Fly.io
 
 **What You Can Test**:
@@ -157,7 +157,7 @@ def fix_postgres_url(cls, v: str) -> str:
 **Manual Fix**:
 ```powershell
 # If attach fails, manually set DATABASE_URL
-fly secrets set DATABASE_URL="postgres://user:pass@db-name.internal:5432/dbname" --app backend-app
+fly secrets set DATABASE_URL="postgresql+psycopg://user:pass@db-name.internal:5432/dbname" --app backend-app
 ```
 
 **Internal DNS**: Use `<app-name>.internal` for Fly.io internal networking
@@ -366,8 +366,8 @@ fly status --app catwalk-live-backend-dev
 ### Run Frontend Locally
 ```bash
 cd frontend
-npm install
-npm run dev
+bun install
+bun run dev
 # Opens at http://localhost:3000
 # Backend proxy configured to use Fly.io
 ```

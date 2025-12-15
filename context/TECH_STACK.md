@@ -459,9 +459,9 @@ uvicorn app.main:app --reload --port 8000
 ### Frontend Setup
 ```bash
 cd frontend
-npm install
+bun install
 cp .env.example .env.local  # Edit with your values
-npm run dev  # Runs on port 3000
+bun run dev  # Runs on port 3000
 ```
 
 ### Full Stack with Docker Compose

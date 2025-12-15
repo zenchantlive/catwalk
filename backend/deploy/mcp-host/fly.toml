@@ -1,6 +1,0 @@
-# Config to trigger remote build from Dockerfile
-app = "catwalk-live-backend-dev"
-primary_region = "sjc"
-
-[build]
-  dockerfile = "Dockerfile"
