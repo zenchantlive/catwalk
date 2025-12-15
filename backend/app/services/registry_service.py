@@ -169,8 +169,8 @@ class RegistryService:
                 connectable=is_connectable
             ),
             trust=RegistryServerTrust(
-                isOfficial=is_official,
-                lastUpdated=official_meta.get("updatedAt", "")
+                is_official=is_official,
+                last_updated=official_meta.get("updatedAt")
             ),
             install_ref=install_ref
         )
