@@ -59,3 +59,6 @@ dist/
 
 # OS
 Thumbs.db
+
+# Local backups (do not commit)
+.git-embedded/
