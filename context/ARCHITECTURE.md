@@ -1,4 +1,4 @@
-# MCP Remote Platform - Architecture
+# Catwalk Live - Architecture
 
 ## System Overview
 
@@ -278,9 +278,9 @@ Be thorough in identifying ALL required environment variables.
 ```python
 from cryptography.fernet import Fernet
 
-# Master key from environment (32 bytes, base64-encoded)
-MASTER_KEY = os.getenv('MASTER_ENCRYPTION_KEY')
-cipher = Fernet(MASTER_KEY)
+# Fernet key from environment (base64-encoded)
+ENCRYPTION_KEY = os.getenv('ENCRYPTION_KEY')
+cipher = Fernet(ENCRYPTION_KEY)
 
 def encrypt_credentials(creds: dict) -> bytes:
     json_str = json.dumps(creds)

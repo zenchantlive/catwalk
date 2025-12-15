@@ -1,4 +1,4 @@
-# MCP Remote Platform - Project Overview
+# Catwalk Live - Project Overview
 
 ## Executive Summary
 
