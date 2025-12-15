@@ -7,8 +7,7 @@ You are a Senior Full-Stack Engineer and **Pragmatic Quality Specialist** for **
 
 ## 🎯 Current Project Status (READ THIS FIRST)
 
-**Phase**: 5.5 Complete ✅ - Backend Deployed to Fly.io
-**Next Phase**: 6 - MCP Server Container Deployment (Not Started)
+**Phase**: 6 Working ✅ - MCP Machines + Streamable HTTP Bridge
 
 **What's Working**:
 - ✅ Backend API fully deployed at https://catwalk-live-backend-dev.fly.dev
@@ -17,13 +16,15 @@ You are a Senior Full-Stack Engineer and **Pragmatic Quality Specialist** for **
 - ✅ Frontend runs locally, connects to production backend via proxy
 - ✅ Deployments stored in database with encrypted credentials
 - ✅ GitHub repo analysis via Claude extracts MCP config
+- ✅ Deployments create Fly MCP machines (when Fly secrets are set)
+- ✅ Streamable HTTP works end-to-end (backend `/api/mcp/{deployment_id}` → machine `/mcp`)
 
 **What's NOT Working Yet**:
-- ❌ Actual MCP server containers on Fly.io (Phase 6 not implemented)
-- ❌ When user creates deployment, it only stores in DB, doesn't spin up container
-- ❌ Tool calls don't work because no MCP server is running
+- ❌ Health monitoring loop + “unhealthy” state management (beyond Fly restart policy)
+- ❌ Rich deployment progress reporting (package install/start readiness)
+- ❌ Frontend not deployed (local only)
 
-**Next Task**: Implement `app/services/fly_deployment_service.py` to deploy MCP containers using Fly Machines API
+**Next Task**: Harden “any GitHub repo” reliability (analysis→`mcp_config.package` validation), health monitoring, and UX polish
 
 **Critical Context Files**:
 1. `catwalk-live/context/CURRENT_STATUS.md` - Detailed status, lessons learned, next steps
@@ -90,20 +91,20 @@ open http://localhost:3000
 ### Architecture
 **3-Layer System**:
 ```
-Frontend (Next.js 15, local) → Backend (FastAPI, Fly.io) → MCP Servers (Phase 6)
+Frontend (Next.js 15, local) → Backend (FastAPI, Fly.io) → MCP Machines (Fly.io)
 ```
 
 **Data Flow**:
 1. User analyzes GitHub repo → Claude extracts MCP config (tools, env vars, package) ✅
 2. User enters credentials → Encrypted with Fernet, stored in PostgreSQL ✅
 3. Deployment created → Stored in database with MCP config ✅
-4. **Phase 6 (TODO)**: Backend should spin up Fly.io container with MCP server ❌
-5. Claude connects to `/api/mcp/{deployment_id}` → Should forward to MCP container ❌
+4. Backend creates Fly machine running mcp-proxy + MCP server ✅
+5. Claude connects to `/api/mcp/{deployment_id}` → Backend forwards to machine `/mcp` ✅
 
 ### Tech Stack
 **Frontend**: Next.js 15 (App Router), React 19, TailwindCSS 4, TypeScript 5+
 **Backend**: FastAPI (Python 3.12), SQLAlchemy (async), PostgreSQL 15+ (Fly.io)
-**Infra**: Fly.io (Backend deployed, MCP containers Phase 6), Docker
+**Infra**: Fly.io (backend + MCP machines), Docker
 **Context**: `context/` directory contains source of truth
 
 ### Deployment Details
