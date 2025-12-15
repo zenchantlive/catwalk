@@ -70,7 +70,7 @@ class ServerProcess:
             logger.info(f"Starting MCP server for deployment {self.deployment_id}")
             logger.info(f"  Package: {self.package}")
             logger.info(f"  Command: {' '.join(cmd)}")
-            logger.info(f"  Env vars: {list(self.env_vars.keys())}")
+            logger.info("  Env vars: %s keys", len(self.env_vars))
             logger.info(f"  Platform: {'Windows' if IS_WINDOWS else 'Unix'}")
 
             if IS_WINDOWS:

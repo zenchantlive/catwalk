@@ -235,7 +235,7 @@ describe('GitHubUrlInput', () => {
 
 **Run component tests:**
 ```bash
-npm test
+bun run test
 ```
 
 ---
@@ -335,17 +335,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: oven-sh/setup-bun@v1
         with:
-          node-version: '20'
+          bun-version: 'latest'
       - name: Install dependencies
         run: |
           cd frontend
-          npm ci
+          bun install --frozen-lockfile
       - name: Run tests
         run: |
           cd frontend
-          npm test -- --coverage
+          bun run test -- --coverage
 
   e2e-tests:
     runs-on: ubuntu-latest
@@ -420,7 +420,7 @@ fly scale count 2  # 2 instances
 
 ```bash
 # One-time setup
-npm install -g vercel
+bun add -g vercel
 cd frontend
 vercel login
 vercel link
@@ -472,7 +472,7 @@ touch frontend/components/NewComponent.tsx
 
 # 2. Add verification test (if component has logic)
 touch frontend/__tests__/components/NewComponent.test.tsx
-npm test NewComponent.test.tsx
+bun run test NewComponent.test.tsx
 ```
 
 ### Database Migration
@@ -517,11 +517,12 @@ fly machines restart {machine_id}
 - [ ] Clone repository
 - [ ] Install Python 3.11+
 - [ ] Install Node.js 20+
+- [ ] Install Bun (frontend package manager)
 - [ ] Install PostgreSQL 15+
 - [ ] Install Fly CLI
 - [ ] Create `.env` files from `.env.example`
 - [ ] Run database migrations
-- [ ] Install dependencies (pip + npm)
+- [ ] Install dependencies (pip + bun)
 - [ ] Run tests to verify setup
 - [ ] Start dev servers
 
@@ -587,7 +588,7 @@ fetch(url, { mode: 'cors' })
 **Problem: Tests fail in CI but pass locally**
 ```bash
 # Run tests in same environment as CI
-docker-compose run --rm frontend npm test
+docker-compose run --rm frontend bun run test
 ```
 
 ---
