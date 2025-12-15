@@ -270,7 +270,7 @@ test('complete deployment flow', async ({ page }) => {
   await expect(page.locator('text=Running')).toBeVisible({ timeout: 90000 })
   
   // Step 6: Verify URL displayed
-  const urlElement = await page.locator('text=/https:\/\/.*\.fly\.dev\/sse/')
+  const urlElement = await page.locator('text=/https:\\/\\/.*\\/api\\/mcp\\/.*/')
   await expect(urlElement).toBeVisible()
   
   // Step 7: Copy URL

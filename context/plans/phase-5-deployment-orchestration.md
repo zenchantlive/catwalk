@@ -3,7 +3,7 @@
 ## Goals
 - Programmatically create and manage Fly.io Machines.
 - Inject credentials and configuration.
-- Expose SSE endpoints via `mcp-proxy`.
+- Expose Streamable HTTP endpoints via `mcp-proxy` (`/mcp`).
 
 ## Tasks
 - [ ] **Fly.io Integration**
@@ -13,7 +13,7 @@
 - [ ] **Container Lifecycle**
     - [ ] Health check monitoring.
     - [ ] State synchronization (DB <-> Fly.io).
-- [ ] **SSE Bridge**
+- [ ] **MCP Bridge (mcp-proxy)**
     - [ ] Verify `mcp-proxy` works in the deployed container.
     - [ ] Ensure proper port exposure (8080).
 
