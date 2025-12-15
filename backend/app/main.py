@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from app.api import health, analyze, forms, deployments, mcp, mcp_streamable
+from app.api import health, analyze, forms, deployments, mcp, mcp_streamable, registry
 from app.services.mcp_process_manager import stop_all_servers
 import logging
 
@@ -47,6 +47,7 @@ app.include_router(health.router, prefix="/api/health", tags=["health"])
 app.include_router(analyze.router, prefix="/api/analyze", tags=["analysis"])
 app.include_router(forms.router, prefix="/api/forms", tags=["forms"])
 app.include_router(deployments.router, prefix="/api/deployments", tags=["deployments"])
+app.include_router(registry.router, prefix="/api/registry", tags=["registry"])
 
 # MCP Streamable HTTP transport (new spec 2025-06-18) - single unified endpoint
 app.include_router(mcp_streamable.router, prefix="/api/mcp", tags=["mcp-streamable"])
