@@ -9,7 +9,7 @@ from app.services.registry_service import RegistryService
 from app.schemas.registry import RegistrySearchParams
 
 async def main():
-    service = RegistryService()
+    service = RegistryService.get_instance()
     print("Fetching servers...")
     try:
         servers = await service.get_servers()
@@ -17,21 +17,13 @@ async def main():
         
         if servers:
             print(f"First server: {servers[0].id} - {servers[0].name}")
+            print(f"Trust: Official={servers[0].trust.is_official}, Updated={servers[0].trust.last_updated}")
             
         print("\nSearching for 'stripe'...")
         results = await service.search_servers(RegistrySearchParams(query="stripe"))
         print(f"Found {len(results)} matches for 'stripe'")
         for r in results:
             print(f" - {r.id}: {r.description[:50]}...")
-            
-        print("\nFetching specific server 'ai.exa/exa'...")
-        server = await service.get_server("ai.exa/exa")
-        if server:
-            print(f"Found server: {server.name}")
-            print(f"Capabilities: {server.capabilities}")
-            print(f"Deployable: {server.capabilities.deployable} (Install: {server.install_ref})")
-        else:
-            print("Server 'ai.exa/exa' not found")
             
     except Exception as e:
         print(f"ERROR: {e}")
