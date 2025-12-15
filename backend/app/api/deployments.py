@@ -43,7 +43,7 @@ async def create_deployment(
     await db.commit()
     await db.refresh(deployment)
 
-    # 3. Start the MCP server subprocess (if package is configured)
+    # 3. Start the MCP server
     mcp_config = deployment.schedule_config.get("mcp_config", {}) if deployment.schedule_config else {}
     package = mcp_config.get("package")
 
@@ -51,34 +51,72 @@ async def create_deployment(
     logger.info(f"Extracted package: {package}")
 
     if package:
-        # Query credentials separately to avoid greenlet issues
-        credentials_result = await db.execute(
-            select(Credential).where(Credential.deployment_id == deployment.id)
-        )
-        credentials = credentials_result.scalars().all()
+        try:
+            # Query credentials separately to avoid greenlet issues
+            credentials_result = await db.execute(
+                select(Credential).where(Credential.deployment_id == deployment.id)
+            )
+            credentials_list = credentials_result.scalars().all()
 
-        # Prepare environment variables from credentials
-        env_vars = {}
-        for cred in credentials:
-            # Decrypt the credential value
-            decrypted_value = encryption_service.decrypt(cred.encrypted_data)
-            # Add to env vars (use service_name as env var name)
-            env_vars[cred.service_name] = decrypted_value
+            # Prepare environment variables from credentials
+            env_vars = {}
+            for cred in credentials_list:
+                # Decrypt the credential value
+                decrypted_value = encryption_service.decrypt(cred.encrypted_data)
+                # Strip 'env_' prefix from service_name to get actual env var name
+                # e.g., 'env_TICKTICK_CLIENT_ID' -> 'TICKTICK_CLIENT_ID'
+                env_var_name = cred.service_name.removeprefix("env_")
+                env_vars[env_var_name] = decrypted_value
 
-        logger.info(f"Starting MCP server for deployment {deployment.id}: {package}")
+            logger.info(f"Starting MCP server for deployment {deployment.id}: {package}")
 
-        # Start the MCP server process
-        success = await start_server(
-            deployment_id=str(deployment.id),
-            package=package,
-            env_vars=env_vars
-        )
+            # CHECK FOR FLY.IO DEPLOYMENT FIRST
+            if settings.FLY_API_TOKEN:
+                from app.services.fly_deployment_service import FlyDeploymentService
+                fly_service = FlyDeploymentService()
+                
+                logger.info("FLY_API_TOKEN found, attempting to create Fly.io machine...")
+                machine_id = await fly_service.create_machine(
+                    deployment_id=str(deployment.id),
+                    mcp_config=mcp_config,
+                    credentials=env_vars
+                )
+                
+                if machine_id:
+                    deployment.machine_id = machine_id
+                    deployment.status = "running"
+                    await db.commit()
+                    logger.info(f"Fly machine {machine_id} started successfully")
+                else:
+                    # Should be unreachable if create_machine raises exception on failure
+                    deployment.status = "failed"
+                    deployment.error_message = "Unknown error: Machine ID not returned"
+                    await db.commit()
+                    
+            else:
+                # FALLBACK TO LOCAL SUBPROCESS (Dev/WSL2 only)
+                logger.info("No FLY_API_TOKEN, falling back to local subprocess manager")
+                success = await start_server(
+                    deployment_id=str(deployment.id),
+                    package=package,
+                    env_vars=env_vars
+                )
 
-        if not success:
-            logger.error(f"Failed to start MCP server for deployment {deployment.id}")
-            # Don't fail the deployment creation, just log the error
-            # The deployment can still be used, but tool calls will fail
+                if not success:
+                    deployment.status = "failed"
+                    deployment.error_message = "Failed to start local subprocess"
+                    await db.commit()
+                    logger.error(f"Failed to start local MCP server for deployment {deployment.id}")
+
+        except Exception as e:
+            logger.exception(f"Deployment failed for {deployment.id}")
+            deployment.status = "failed"
+            deployment.error_message = str(e)
+            await db.commit()
     else:
+        deployment.status = "failed"
+        deployment.error_message = "No 'package' specified in MCP config"
+        await db.commit()
         logger.warning(f"No package configured for deployment {deployment.id}, skipping server start")
 
     # 4. Construct Response
@@ -96,7 +134,8 @@ async def create_deployment(
         schedule_config=deployment.schedule_config,
         created_at=deployment.created_at,
         updated_at=deployment.updated_at,
-        connection_url=connection_url
+        connection_url=connection_url,
+        error_message=deployment.error_message
     )
     return response
 
@@ -121,7 +160,8 @@ async def list_deployments(
             schedule_config=d.schedule_config,
             created_at=d.created_at,
             updated_at=d.updated_at,
-            connection_url=connection_url
+            connection_url=connection_url,
+            error_message=d.error_message
         ))
         
     return responses

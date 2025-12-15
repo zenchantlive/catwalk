@@ -41,6 +41,38 @@ class Settings(BaseSettings):
 
     # Public URL for generating connection strings (e.g. https://xyz.ngrok-free.app)
     PUBLIC_URL: Optional[str] = None
+
+    # Fly.io Configuration
+    # Token to authenticate with Fly Machines API
+    FLY_API_TOKEN: Optional[str] = None
+    # Name of the Fly app where MCP machines will be created
+    # This is a separate app from the backend for clean separation
+    FLY_MCP_APP_NAME: str = "catwalk-live-mcp-servers"
+    # Docker image to use for MCP servers
+    # MUST be set in production via environment variable or .env file
+    # Example: registry.fly.io/catwalk-live-mcp-host:latest
+    FLY_MCP_IMAGE: Optional[str] = None
+
+    @field_validator("FLY_MCP_IMAGE")
+    @classmethod
+    def validate_mcp_image(cls, v: Optional[str]) -> Optional[str]:
+        """
+        Validate that FLY_MCP_IMAGE is set when FLY_API_TOKEN is present.
+
+        This prevents the system from attempting to create machines with invalid
+        image identifiers. If you're deploying MCP servers, you MUST set this.
+
+        Raises:
+            ValueError: If FLY_MCP_IMAGE is not set when needed.
+        """
+        # During initialization, we can't check FLY_API_TOKEN yet (not available in validator context)
+        # So we'll add a runtime check in the service instead
+        # For now, just ensure if it IS set, it looks valid
+        if v and not ("/" in v or ":" in v):
+            raise ValueError(
+                f"FLY_MCP_IMAGE must be a valid Docker image reference (e.g., 'registry.fly.io/app:tag'), got: {v}"
+            )
+        return v
     
     # Pydantic Configuration
     model_config = SettingsConfigDict(

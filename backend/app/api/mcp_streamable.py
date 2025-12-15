@@ -39,6 +39,167 @@ SUPPORTED_PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"]
 DEFAULT_PROTOCOL_VERSION = "2025-06-18"
 
 
+def _jsonrpc_error(msg_id: Any, code: int, message: str) -> Dict[str, Any]:
+    return {
+        "jsonrpc": "2.0",
+        "id": msg_id,
+        "error": {"code": code, "message": message},
+    }
+
+
+async def _get_deployment(db: AsyncSession, deployment_id: str) -> Optional[Deployment]:
+    try:
+        from uuid import UUID
+
+        deployment_uuid = UUID(deployment_id)
+    except ValueError:
+        return None
+
+    result = await db.execute(select(Deployment).where(Deployment.id == deployment_uuid))
+    return result.scalar_one_or_none()
+
+
+async def _forward_to_fly_machine_streamable_http(
+    *,
+    deployment: Deployment,
+    message: Dict[str, Any],
+    protocol_version: str,
+    session_id: Optional[str],
+) -> Response:
+    import httpx
+
+    # Prefer Fly internal DNS over raw IPs.
+    # This avoids relying on the Machines API response shape ("private_ip" varies) and is
+    # the most reliable way to reach a specific machine on the 6PN network.
+    machine_host_internal = f"{deployment.machine_id}.vm.{settings.FLY_MCP_APP_NAME}.internal"
+    machine_url_internal = f"http://{machine_host_internal}:8080/mcp"
+
+    headers: Dict[str, str] = {
+        "Content-Type": "application/json",
+        # mcp-proxy Streamable HTTP requires the client to accept JSON responses
+        # (and may also stream server events as SSE).
+        "Accept": "application/json, text/event-stream",
+        "MCP-Protocol-Version": protocol_version,
+    }
+    if session_id:
+        headers["Mcp-Session-Id"] = session_id
+
+    async def _do_forward(url: str) -> Response:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            async with client.stream("POST", url, json=message, headers=headers) as upstream:
+                upstream_headers: Dict[str, str] = {}
+                for header_name in ("MCP-Protocol-Version", "Mcp-Session-Id"):
+                    header_value = upstream.headers.get(header_name)
+                    if header_value is not None:
+                        upstream_headers[header_name] = header_value
+
+                content_type = upstream.headers.get("content-type", "")
+                if content_type.lower().startswith("text/event-stream"):
+                    return StreamingResponse(
+                        upstream.aiter_raw(),
+                        status_code=upstream.status_code,
+                        headers=upstream_headers,
+                        media_type="text/event-stream",
+                    )
+
+                content = await upstream.aread()
+                return Response(
+                    content=content,
+                    status_code=upstream.status_code,
+                    headers=upstream_headers,
+                    media_type=content_type.split(";", 1)[0] if content_type else None,
+                )
+
+    try:
+        logger.info(
+            "Forwarding MCP request to Fly machine (internal DNS): machine_id=%s url=%s",
+            deployment.machine_id,
+            machine_url_internal,
+        )
+        return await _do_forward(machine_url_internal)
+    except httpx.ConnectError as e:
+        # Fallback: if internal DNS fails but Machines API is configured, try raw private IPv6.
+        logger.warning(
+            "ConnectError via internal DNS (%s). Falling back to Machines API lookup. err=%s",
+            machine_url_internal,
+            str(e),
+        )
+
+        if not settings.FLY_API_TOKEN:
+            return JSONResponse(
+                status_code=502,
+                content=_jsonrpc_error(
+                    message.get("id"),
+                    -32603,
+                    f"Error connecting to MCP server (internal DNS failed and no FLY_API_TOKEN for lookup): {str(e)}",
+                ),
+                headers={"MCP-Protocol-Version": protocol_version},
+            )
+
+        try:
+            from app.services.fly_deployment_service import FlyDeploymentService
+
+            fly_service = FlyDeploymentService()
+            machine_info = await fly_service.get_machine(deployment.machine_id)
+        except Exception as lookup_error:
+            logger.error("Machines API lookup failed for %s: %s", deployment.machine_id, lookup_error, exc_info=True)
+            return JSONResponse(
+                status_code=502,
+                content=_jsonrpc_error(
+                    message.get("id"),
+                    -32603,
+                    f"Error connecting to MCP server (Machines API lookup failed): {str(lookup_error)}",
+                ),
+                headers={"MCP-Protocol-Version": protocol_version},
+            )
+
+        private_ip = None
+        if isinstance(machine_info, dict):
+            private_ip = machine_info.get("private_ip")
+            if not private_ip:
+                private_ips = machine_info.get("private_ips")
+                if isinstance(private_ips, list) and private_ips:
+                    private_ip = private_ips[0]
+
+        if not private_ip:
+            return JSONResponse(
+                status_code=502,
+                content=_jsonrpc_error(
+                    message.get("id"),
+                    -32603,
+                    "MCP server machine has no private IP address in Machines API response.",
+                ),
+                headers={"MCP-Protocol-Version": protocol_version},
+            )
+
+        machine_url_ipv6 = f"http://[{private_ip}]:8080/mcp"
+        try:
+            logger.info(
+                "Forwarding MCP request to Fly machine (private IPv6): machine_id=%s url=%s",
+                deployment.machine_id,
+                machine_url_ipv6,
+            )
+            return await _do_forward(machine_url_ipv6)
+        except Exception as final_error:
+            logger.error("Error forwarding to Fly machine: %s", final_error, exc_info=True)
+            return JSONResponse(
+                status_code=502,
+                content=_jsonrpc_error(
+                    message.get("id"),
+                    -32603,
+                    f"Error connecting to MCP server: {str(final_error)}",
+                ),
+                headers={"MCP-Protocol-Version": protocol_version},
+            )
+    except Exception as e:
+        logger.error("Error forwarding to Fly machine: %s", e, exc_info=True)
+        return JSONResponse(
+            status_code=502,
+            content=_jsonrpc_error(message.get("id"), -32603, f"Error connecting to MCP server: {str(e)}"),
+            headers={"MCP-Protocol-Version": protocol_version},
+        )
+
+
 @router.get("/{deployment_id}")
 @router.post("/{deployment_id}")
 async def handle_mcp_endpoint(
@@ -166,6 +327,22 @@ async def handle_post_message(
     method = body.get("method")
     msg_id = body.get("id")
 
+    deployment = await _get_deployment(db, deployment_id)
+    if not deployment:
+        return JSONResponse(
+            status_code=404,
+            content=_jsonrpc_error(msg_id, -32001, f"Deployment not found: {deployment_id}"),
+            headers={"MCP-Protocol-Version": protocol_version},
+        )
+
+    if deployment.machine_id:
+        return await _forward_to_fly_machine_streamable_http(
+            deployment=deployment,
+            message=body,
+            protocol_version=protocol_version,
+            session_id=session_id,
+        )
+
     # Check if this is a notification (no 'id' field) or response
     is_notification = msg_id is None and method is not None
     is_response = "result" in body or "error" in body
@@ -189,7 +366,7 @@ async def handle_post_message(
         )
 
     # Handle requests - process and return JSON-RPC response
-    response_data = await process_jsonrpc_request(deployment_id, body, db, session_id, protocol_version)
+    response_data = await process_jsonrpc_request(deployment, deployment_id, body, session_id, protocol_version)
 
     # Return JSON response with MCP protocol version header
     return JSONResponse(
@@ -200,9 +377,9 @@ async def handle_post_message(
 
 
 async def process_jsonrpc_request(
+    deployment: Deployment,
     deployment_id: str,
     message: Dict[str, Any],
-    db: AsyncSession,
     session_id: Optional[str],
     protocol_version: str
 ) -> Dict[str, Any]:
@@ -216,38 +393,6 @@ async def process_jsonrpc_request(
     method = message.get("method")
     msg_id = message.get("id")
     params = message.get("params", {})
-
-    # Fetch the deployment from the database to get its MCP server configuration
-    # Convert deployment_id string to UUID for database query
-    try:
-        from uuid import UUID
-        deployment_uuid = UUID(deployment_id)
-    except ValueError:
-        logger.error(f"Invalid UUID format: {deployment_id}")
-        return {
-            "jsonrpc": "2.0",
-            "id": msg_id,
-            "error": {
-                "code": -32602,
-                "message": f"Invalid deployment ID format: {deployment_id}"
-            }
-        }
-
-    result = await db.execute(
-        select(Deployment).where(Deployment.id == deployment_uuid)
-    )
-    deployment = result.scalar_one_or_none()
-
-    if not deployment:
-        logger.error(f"Deployment not found: {deployment_id}")
-        return {
-            "jsonrpc": "2.0",
-            "id": msg_id,
-            "error": {
-                "code": -32001,
-                "message": f"Deployment not found: {deployment_id}"
-            }
-        }
 
     # Extract MCP server configuration from schedule_config
     # Expected structure: deployment.schedule_config = {"mcp_config": {...}}
@@ -308,7 +453,8 @@ async def process_jsonrpc_request(
 
         logger.info(f"Tool call request for deployment {deployment_id}: {tool_name} with args: {tool_arguments}")
 
-        # Get the running MCP server process for this deployment
+        # Fallback: Try local subprocess (for local development)
+        logger.info("No machine_id, trying local subprocess")
         server = await get_server(deployment_id)
 
         if not server:

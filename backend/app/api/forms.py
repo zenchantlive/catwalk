@@ -10,8 +10,11 @@ router = APIRouter()
 
 from app.services.analysis import AnalysisService
 
-def get_cache_service():
-    return CacheService()
+from app.db.session import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
+
+def get_cache_service(db: AsyncSession = Depends(get_db)):
+    return CacheService(db)
 
 def get_analysis_service():
     return AnalysisService()
