@@ -2,7 +2,7 @@ import { RegistryServer } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { Check, Rocket, Link as LinkIcon, Box } from "lucide-react";
+import { Check, Rocket, Link as LinkIcon } from "lucide-react";
 import Link from "next/link";
 
 interface ServerCardProps {
@@ -53,14 +53,14 @@ export function ServerCard({ server }: ServerCardProps) {
 
             <CardFooter className="pt-0 gap-2">
                 {isDeployable ? (
-                    <Link href={`/config?registryId=${encodeURIComponent(server.id)}`} className="w-full">
+                    <Link href={`/configure?registryId=${encodeURIComponent(server.id)}`} className="w-full">
                         <Button className="w-full bg-white/10 hover:bg-white/20 text-white border border-white/10 backdrop-blur-sm">
                             <Rocket className="w-4 h-4 mr-2" />
                             Deploy
                         </Button>
                     </Link>
                 ) : (
-                    <Link href={`/config?registryId=${encodeURIComponent(server.id)}&mode=connect`} className="w-full">
+                    <Link href={`/configure?registryId=${encodeURIComponent(server.id)}&mode=connect`} className="w-full">
                         <Button variant="outline" className="w-full border-white/10 text-white/70 hover:text-white hover:bg-white/5">
                             <LinkIcon className="w-4 h-4 mr-2" />
                             Connect

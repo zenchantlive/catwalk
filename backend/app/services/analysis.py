@@ -64,10 +64,24 @@ class AnalysisService:
             # Extract the content from the response
             content = response.choices[0].message.content
             
-            # TODO: Add robust JSON parsing/cleaning here if the model adds markdown ticks
-            # For now, return the raw content or parsed dict if possible
-            # We assume the model follows the instruction to output JSON.
-            return {"raw_analysis": content}
+            # Clean and parse the JSON content
+            import json
+            import re
+            
+            cleaned_content = content.strip()
+            # Remove markdown code blocks if present
+            if "```" in cleaned_content:
+                cleaned_content = re.sub(r"^```json\s*", "", cleaned_content, flags=re.MULTILINE)
+                cleaned_content = re.sub(r"^```\s*", "", cleaned_content, flags=re.MULTILINE)
+                cleaned_content = re.sub(r"```$", "", cleaned_content, flags=re.MULTILINE).strip()
+            
+            try:
+                parsed_data = json.loads(cleaned_content)
+                return parsed_data
+            except json.JSONDecodeError:
+                # Fallback or error if parsing fails
+                print(f"Failed to parse JSON analysis: {cleaned_content}")
+                return {"error": "Failed to parse analysis results", "raw": content}
             
         except Exception as e:
             # Log the error (in a real app) and re-raise or return error status
