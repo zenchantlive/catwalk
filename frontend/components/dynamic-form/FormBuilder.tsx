@@ -34,6 +34,14 @@ interface FormBuilderProps {
 export default function FormBuilder({ schema, onSubmit, isLoading }: FormBuilderProps) {
     const [showPassword, setShowPassword] = useState<Record<string, boolean>>({});
 
+    if (!schema?.fields) {
+        return (
+            <div className="card-glass p-6 w-full max-w-lg mx-auto text-center">
+                <p className="text-[var(--pk-status-red)]">Invalid form schema: Missing fields definition.</p>
+            </div>
+        );
+    }
+
     // Dynamically generate Zod schema based on props
     const generateZodSchema = (fields: FormField[]) => {
         const shape: Record<string, z.ZodTypeAny> = {};

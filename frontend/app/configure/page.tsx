@@ -2,7 +2,7 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { getFormSchema, createDeployment } from "@/lib/api";
+import { getFormSchema, getRegistryFormSchema, createDeployment, registry } from "@/lib/api";
 import FormBuilder from "@/components/dynamic-form/FormBuilder";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -13,17 +13,46 @@ function ConfigureContent() {
     const router = useRouter();
 
     const serviceType = searchParams.get("service") || "custom";
-    const repoUrl = searchParams.get("repo");
+    const paramRepoUrl = searchParams.get("repo");
+    const registryId = searchParams.get("registryId");
 
-    // Fetch schema
-    const { data: schema, isLoading, error } = useQuery({
-        queryKey: ["formSchema", serviceType, repoUrl],
-        queryFn: () => getFormSchema(serviceType, repoUrl),
+    // Fetch registry data if registryId is present
+    const { data: registryServer, isLoading: isRegistryLoading } = useQuery({
+        queryKey: ["registryServer", registryId],
+        queryFn: () => registry.get(registryId!),
+        enabled: !!registryId
     });
+
+    const isLocalOnlyRegistryServer = !!registryId && !!registryServer && !registryServer.capabilities.deployable;
+
+    // Determine which flow to use:
+    // - Registry flow: If registryId exists AND server is deployable
+    // - GitHub flow: Otherwise (manual repo URL)
+    const useRegistryFlow = !!registryId && registryServer?.capabilities.deployable;
+    const finalRepoUrl = paramRepoUrl || registryServer?.repository_url;
+
+    // Fetch schema using appropriate flow
+    const { data: schema, isLoading: isSchemaLoading, error } = useQuery({
+        queryKey: useRegistryFlow
+            ? ["formSchema", "registry", registryId]
+            : ["formSchema", serviceType, finalRepoUrl],
+        queryFn: () => {
+            if (useRegistryFlow) {
+                // Fast path: Parse registry data directly (no LLM)
+                return getRegistryFormSchema(registryId!);
+            } else {
+                // Slow path: Analyze GitHub repo with Claude (existing flow)
+                return getFormSchema(serviceType, finalRepoUrl!);
+            }
+        },
+        enabled: !isLocalOnlyRegistryServer && (useRegistryFlow ? !!registryId : !!finalRepoUrl)
+    });
+
+    const isLoading = isRegistryLoading || isSchemaLoading;
 
     // Submit to real API
     const mutation = useMutation({
-        mutationFn: async (formData: any) => {
+        mutationFn: async (formData: Record<string, any>) => {
             // Segregate name from credentials
             const { name, ...credentials } = formData;
 
@@ -55,6 +84,25 @@ function ConfigureContent() {
     }
 
     if (error || !schema) {
+        if (isLocalOnlyRegistryServer) {
+            return (
+                <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-center p-6">
+                    <p className="text-[var(--pk-status-red)]">
+                        This server is marked local-only and can’t be deployed to cloud machines.
+                    </p>
+                    {registryServer?.repository_url && (
+                        <p className="text-[var(--pk-text-secondary)] text-sm break-all max-w-2xl">
+                            Repository:{" "}
+                            <span className="text-white font-mono">
+                                {registryServer.repository_url}
+                            </span>
+                        </p>
+                    )}
+                    <Link href="/" className="btn-aurora">Back to Registry</Link>
+                </div>
+            );
+        }
+
         return (
             <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-center p-6">
                 <p className="text-[var(--pk-status-red)]">Failed to load configuration form.</p>
@@ -72,16 +120,16 @@ function ConfigureContent() {
 
             <div className="space-y-2">
                 <h1 className="text-3xl font-bold text-gradient">Configure Deployment</h1>
-                {repoUrl && (
+                {finalRepoUrl && (
                     <p className="text-[var(--pk-text-secondary)] text-sm break-all">
-                        Repository: <span className="text-white font-mono">{repoUrl}</span>
+                        Repository: <span className="text-white font-mono">{finalRepoUrl}</span>
                     </p>
                 )}
             </div>
 
             <FormBuilder
                 schema={schema}
-                onSubmit={async (data) => mutation.mutateAsync(data)}
+                onSubmit={async (data) => { await mutation.mutateAsync(data); }}
                 isLoading={mutation.isPending}
             />
         </div>

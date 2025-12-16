@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
 from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.schemas.registry import RegistrySearchParams, RegistryServer
 from app.services.registry_service import RegistryService
-from app.schemas.registry import RegistryServer, RegistrySearchParams
 
 router = APIRouter()
 
@@ -15,7 +17,7 @@ async def search_registry(
     offset: int = 0,
     service: RegistryService = Depends(get_registry_service)
 ):
-    """Search for MCP servers in the official registry."""
+    """Search for MCP servers in the Glama MCP registry."""
     params = RegistrySearchParams(query=q, limit=limit, offset=offset)
     return await service.search_servers(params)
 
@@ -27,5 +29,8 @@ async def get_server(
     """Get details for a specific MCP server by ID (e.g. 'ai.exa/exa')."""
     server = await service.get_server(server_id)
     if not server:
-        raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found in registry")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Server '{server_id}' not found in Glama registry",
+        )
     return server
