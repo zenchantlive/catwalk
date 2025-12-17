@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import sys
 from logging.config import fileConfig
@@ -16,6 +17,11 @@ import app.models  # noqa: F401
 from alembic import context
 from app.core.config import settings
 from app.db.base import Base
+
+# Alembic Constants
+DB_CONNECT_TIMEOUT = 10
+DB_RETRY_ATTEMPTS = 10
+DB_RETRY_MAX_DELAY = 10
 
 config = context.config
 
@@ -58,7 +64,7 @@ async def run_async_migrations() -> None:
 
     engine_kwargs = {}
     if settings.DATABASE_URL.startswith("postgresql"):
-        engine_kwargs["connect_args"] = {"connect_timeout": 10}
+        engine_kwargs["connect_args"] = {"connect_timeout": DB_CONNECT_TIMEOUT}
 
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
@@ -68,7 +74,7 @@ async def run_async_migrations() -> None:
     )
 
     last_error: Exception | None = None
-    for attempt in range(1, 11):
+    for attempt in range(1, DB_RETRY_ATTEMPTS + 1):
         try:
             async with connectable.connect() as connection:
                 await connection.run_sync(do_run_migrations)
@@ -76,13 +82,12 @@ async def run_async_migrations() -> None:
             break
         except OperationalError as exc:
             last_error = exc
-            if attempt >= 10:
+            if attempt >= DB_RETRY_ATTEMPTS:
                 break
-            delay_s = min(2 ** (attempt - 1), 10)
-            print(
+            delay_s = min(2 ** (attempt - 1), DB_RETRY_MAX_DELAY)
+            logging.warning(
                 "Database connection failed during migrations "
-                f"(attempt {attempt}/10). Retrying in {delay_s}s...",
-                flush=True,
+                f"(attempt {attempt}/{DB_RETRY_ATTEMPTS}). Retrying in {delay_s}s...",
             )
             await asyncio.sleep(delay_s)
 
