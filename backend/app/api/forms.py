@@ -1,4 +1,6 @@
 import json
+import logging
+import re
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -13,6 +15,7 @@ from app.services.registry_service import RegistryService
 
 # Create a new APIRouter instance for form-related endpoints
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 def get_cache_service(db: AsyncSession = Depends(get_db)):
     return CacheService(db)
@@ -40,7 +43,7 @@ async def get_form_schema(
         
         if not analysis:
             # Fallback: Run analysis on the fly if cache is missing
-            print(f"Cache miss for {repo_url}. Running analysis on the fly...")
+            logger.info(f"Cache miss for {repo_url}. Running analysis on the fly...")
             analysis = await analysis_service.analyze_repo(repo_url)
             
             # Use 'error' check from analyze_repo return format
@@ -75,14 +78,14 @@ async def get_form_schema(
                            # Try to parse just the valid part up to the error
                            try:
                                data = json.loads(json_str[:e.pos])
-                           except Exception:
-                               print(
-                                   "Failed to recover JSON from extra data error: "
-                                   f"{e}"
+                           except Exception as e_inner:
+                               logger.warning(
+                                   "Failed to recover JSON from extra data error: %s",
+                                   e_inner
                                )
                                data = {}
                        else:
-                           print(f"JSON decode error: {e}")
+                           logger.warning(f"JSON decode error: {e}")
                            data = {}
                 else:
                    data = {} # Fallback
@@ -154,7 +157,7 @@ async def get_form_schema(
             )
             
         except Exception as e:
-            print(f"Error generating form: {e}")
+            logger.error(f"Error generating form: {e}", exc_info=True)
             # Fallback
             return FormSchema(
                 title="Configuration Error",
@@ -251,16 +254,20 @@ async def get_registry_form_schema(
             elif env_var.get("secret"):
                 field_type = "password"
 
+            # Sanitize env var name to prevent invalid form characters
+            raw_name = env_var["name"]
+            sanitized_name = re.sub(r"[^A-Za-z0-9_]", "_", raw_name)
+
             fields.append(
                 FormField(
-                    name=f"env_{env_var['name']}",
-                    label=env_var['name'],
+                    name=f"env_{sanitized_name}",
+                    label=raw_name,
                     type=field_type,
                     required=env_var["required"],
                     default=env_var.get("default"),
                     options=env_var.get("options"),
                     description=env_var["description"]
-                    or f"Environment variable: {env_var['name']}",
+                    or f"Environment variable: {raw_name}",
                 )
             )
 
@@ -301,7 +308,7 @@ async def get_registry_form_schema(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         # Log unexpected errors and return 500
-        print(f"Error generating registry form for {registry_id}: {e}")
+        logger.error(f"Error generating registry form for {registry_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate form schema: {str(e)}"

@@ -19,6 +19,15 @@ logger = logging.getLogger(__name__)
 GLAMA_API_URL = "https://glama.ai/api/mcp/v1/servers"
 GLAMA_SERVERS_SITEMAP_URL = "https://glama.ai/sitemaps/mcp-servers.xml"
 
+# Service Constants
+DEFAULT_TIMEOUT_SECONDS = 10.0
+MAX_PAGES_TO_FETCH = 25
+BATCH_SIZE = 20
+GLAMA_ITEMS_PER_PAGE = 100
+MAX_SEARCH_LIMIT = 101
+CACHE_TTL_HOURS = 1
+SITEMAP_TTL_HOURS = 12
+
 _SITEMAP_XMLNS = "http://www.sitemaps.org/schemas/sitemap/0.9"
 _SITEMAP_LOC_TAG = f"{{{_SITEMAP_XMLNS}}}loc"
 _SITEMAP_SERVER_RE = re.compile(
@@ -34,12 +43,12 @@ class RegistryService:
         self._cache: Dict[str, RegistryServer] = {}
         self._raw_cache: Dict[str, Dict] = {}  # Store raw registry API data
         self._last_updated: Optional[datetime] = None
-        self._cache_ttl = timedelta(hours=1)
+        self._cache_ttl = timedelta(hours=CACHE_TTL_HOURS)
 
         # Full directory index (12k+) via Glama sitemap for reliable lookup.
         self._sitemap_ids: List[str] = []
         self._sitemap_last_updated: Optional[datetime] = None
-        self._sitemap_ttl = timedelta(hours=12)
+        self._sitemap_ttl = timedelta(hours=SITEMAP_TTL_HOURS)
 
     @classmethod
     def get_instance(cls):
@@ -50,6 +59,8 @@ class RegistryService:
     async def get_servers(self, force_refresh: bool = False) -> List[RegistryServer]:
         """Get all servers from the registry, using cache if valid."""
         if not force_refresh and self._is_cache_valid():
+            # Read from cache with lock? dict reads are atomic in python,
+            # but for consistency we can trust the atomic swap pattern used below.
             return list(self._cache.values())
         
         await self._fetch_and_cache_registry()
@@ -108,7 +119,7 @@ class RegistryService:
             glama_results = await self._search_glama(
                 query=query,
                 offset=0,
-                limit=min(101, target_count * 2),
+                limit=min(MAX_SEARCH_LIMIT, target_count * 2),
             )
             q_lower = query.lower()
             for server in glama_results:
@@ -139,8 +150,9 @@ class RegistryService:
         if raw:
             normalized = self._normalize_glama_server(raw)
             if normalized:
-                self._cache[normalized.id] = normalized
-                self._raw_cache[normalized.id] = raw
+                async with self._lock:
+                    self._cache[normalized.id] = normalized
+                    self._raw_cache[normalized.id] = raw
                 return normalized
 
         await self._fetch_and_cache_registry()
@@ -160,7 +172,8 @@ class RegistryService:
 
             logger.info("Fetching deployable registry data from Glama API...")
             try:
-                async with httpx.AsyncClient() as client:
+                timeout = httpx.Timeout(DEFAULT_TIMEOUT_SECONDS)
+                async with httpx.AsyncClient(timeout=timeout) as client:
                     all_raw_servers: List[Dict[str, Any]] = []
                     for query in ("hosting:remote-capable", "hosting:hybrid"):
                         all_raw_servers.extend(
@@ -219,8 +232,8 @@ class RegistryService:
         all_raw_servers: List[Dict[str, Any]] = []
         cursor: Optional[str] = None
 
-        for _ in range(25):
-            params: Dict[str, Any] = {"first": 100, "query": query}
+        for _ in range(MAX_PAGES_TO_FETCH):
+            params: Dict[str, Any] = {"first": GLAMA_ITEMS_PER_PAGE, "query": query}
             if cursor:
                 params["after"] = cursor
 
@@ -263,9 +276,10 @@ class RegistryService:
         seen_ids: set[str] = set()
         cursor: Optional[str] = None
 
-        async with httpx.AsyncClient() as client:
-            for _ in range(25):
-                params: Dict[str, Any] = {"first": 100, "query": query}
+        timeout = httpx.Timeout(DEFAULT_TIMEOUT_SECONDS)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            for _ in range(MAX_PAGES_TO_FETCH):
+                params: Dict[str, Any] = {"first": GLAMA_ITEMS_PER_PAGE, "query": query}
                 if cursor:
                     params["after"] = cursor
 
@@ -286,9 +300,11 @@ class RegistryService:
                             continue
                         seen_ids.add(normalized.id)
                         collected.append(normalized)
+                        
                         # Cache raw/normalized for later detail/form generation.
-                        self._cache[normalized.id] = normalized
-                        self._raw_cache[normalized.id] = raw
+                        async with self._lock:
+                            self._cache[normalized.id] = normalized
+                            self._raw_cache[normalized.id] = raw
 
                         if len(collected) >= target_count:
                             return collected[offset:target_count]
@@ -362,7 +378,8 @@ class RegistryService:
                 return
 
             logger.info("Fetching Glama MCP servers sitemap...")
-            async with httpx.AsyncClient() as client:
+            timeout = httpx.Timeout(DEFAULT_TIMEOUT_SECONDS)
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 resp = await client.get(GLAMA_SERVERS_SITEMAP_URL)
                 resp.raise_for_status()
                 xml_text = resp.text
@@ -420,15 +437,15 @@ class RegistryService:
         )
 
         collected: List[RegistryServer] = []
-        batch_size = 20
         target_count = needed
 
-        async with httpx.AsyncClient() as client:
-            for i in range(0, len(candidates), batch_size):
+        timeout = httpx.Timeout(DEFAULT_TIMEOUT_SECONDS)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            for i in range(0, len(candidates), BATCH_SIZE):
                 if len(collected) >= target_count:
                     break
 
-                batch = candidates[i : i + batch_size]
+                batch = candidates[i : i + BATCH_SIZE]
                 raws = await asyncio.gather(
                     *[
                         self._fetch_glama_server_detail_with_client(
@@ -453,8 +470,10 @@ class RegistryService:
 
                     seen_ids.add(normalized.id)
                     collected.append(normalized)
-                    self._cache[normalized.id] = normalized
-                    self._raw_cache[normalized.id] = raw
+                    
+                    async with self._lock:
+                        self._cache[normalized.id] = normalized
+                        self._raw_cache[normalized.id] = raw
 
                     if len(collected) >= target_count:
                         break
