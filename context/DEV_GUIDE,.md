@@ -33,7 +33,7 @@ Notes:
 
 ```bash
 cd backend
-fly deploy --app catwalk-live-backend-dev
+fly deploy --app <your-backend-app>
 ```
 
 ### Build + push the MCP host image
@@ -45,7 +45,7 @@ From `deploy/`:
 Then set the image on the backend:
 
 ```bash
-fly secrets set FLY_MCP_IMAGE="registry.fly.io/catwalk-live-mcp-servers:deployment-XXXXXXXX" --app catwalk-live-backend-dev
+fly secrets set FLY_MCP_IMAGE="registry.fly.io/<your-mcp-app>:deployment-XXXXXXXX" --app <your-backend-app>
 ```
 
 ## Debugging
@@ -54,13 +54,13 @@ fly secrets set FLY_MCP_IMAGE="registry.fly.io/catwalk-live-mcp-servers:deployme
 
 From your machine:
 ```bash
-fly ssh console --app catwalk-live-backend-dev
+fly ssh console --app <your-backend-app>
 ```
 
 From the backend shell:
 ```bash
-curl -sv http://{machine_id}.vm.catwalk-live-mcp-servers.internal:8080/status
-curl -sv http://{machine_id}.vm.catwalk-live-mcp-servers.internal:8080/mcp \
+curl -sv http://{machine_id}.vm.<your-mcp-app>.internal:8080/status
+curl -sv http://{machine_id}.vm.<your-mcp-app>.internal:8080/mcp \
   -H 'accept: application/json' \
   -H 'content-type: application/json' \
   -H 'MCP-Protocol-Version: 2025-06-18' \

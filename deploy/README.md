@@ -15,21 +15,21 @@ This directory contains the Docker image used for all user-deployed MCP servers.
 
 ```bash
 cd deploy
-fly deploy --build-only --push --app catwalk-live-mcp-servers
+fly deploy --build-only --push --app <your-mcp-app>
 ```
 
 This will:
 1. Build the Docker image
 2. Push it to Fly's container registry
-3. Output the image name (e.g., `registry.fly.io/catwalk-live-mcp-servers:deployment-XXXXXXXX`)
+3. Output the image name (e.g., `registry.fly.io/<your-mcp-app>:deployment-XXXXXXXX`)
 
 ### Step 2: Set the Image in Backend Secrets
 
 Copy the image name from Step 1 and run:
 
 ```bash
-fly secrets set FLY_MCP_IMAGE="registry.fly.io/catwalk-live-mcp-servers:deployment-XXXXXXXX" \
-  --app catwalk-live-backend-dev
+fly secrets set FLY_MCP_IMAGE="registry.fly.io/<your-mcp-app>:deployment-XXXXXXXX" \
+  --app <your-backend-app>
 ```
 
 ### Step 3: Deploy Backend (if needed)
@@ -38,7 +38,7 @@ If you made backend changes:
 
 ```bash
 cd ../backend
-fly deploy --app catwalk-live-backend-dev
+fly deploy --app <your-backend-app>
 ```
 
 ## How It Works
@@ -50,7 +50,7 @@ fly deploy --app catwalk-live-backend-dev
 3. **Backend calls Fly API**: Creates a new machine with:
    ```json
    {
-     "image": "registry.fly.io/catwalk-live-mcp-servers:deployment-XXXXXXXX",
+     "image": "registry.fly.io/<your-mcp-app>:deployment-XXXXXXXX",
      "env": {
        "MCP_PACKAGE": "@alexarevalo.ai/mcp-server-ticktick",
        "TICKTICK_TOKEN": "<encrypted-user-credential>"
@@ -84,22 +84,22 @@ curl http://localhost:8080/
 
 ```bash
 # Check logs
-fly logs --app catwalk-live-mcp-servers
+fly logs --app <your-mcp-app>
 
 # Rebuild without cache
-fly deploy --build-only --push --app catwalk-live-mcp-servers --no-cache
+fly deploy --build-only --push --app <your-mcp-app> --no-cache
 ```
 
 ### Machine Won't Start
 
 Check the machine logs via backend:
 ```bash
-fly ssh console --app catwalk-live-backend-dev
+fly ssh console --app <your-backend-app>
 # Inside the container:
-curl https://api.machines.dev/v1/apps/catwalk-live-mcp-servers/machines
+curl https://api.machines.dev/v1/apps/<your-mcp-app>/machines
 ```
 
-Or check via Fly dashboard: https://fly.io/apps/catwalk-live-mcp-servers
+Or check via Fly dashboard: https://fly.io/apps/<your-mcp-app>
 
 ## What's in the Image
 

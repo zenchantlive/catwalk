@@ -114,7 +114,7 @@ class FlyDeploymentService:
     async def get_machine(self, machine_id: str) -> Optional[Dict[str, Any]]:
         """Get details of a specific machine."""
         if not self.api_token:
-            return None
+            raise ValueError("FLY_API_TOKEN is not configured on the backend.")
             
         url = f"{self.base_url}/apps/{self.app_name}/machines/{machine_id}"
         
@@ -135,7 +135,7 @@ class FlyDeploymentService:
     async def delete_machine(self, machine_id: str) -> bool:
         """Destroy a Fly machine."""
         if not self.api_token:
-            return False
+            raise ValueError("FLY_API_TOKEN is not configured on the backend.")
             
         # Machine must be stopped before destruction? 
         # The API usually allows force=true

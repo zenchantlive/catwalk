@@ -28,9 +28,9 @@ High-level flow:
 ## Infrastructure (Fly.io)
 
 Apps:
-- Backend: `catwalk-live-backend-dev`
-- Postgres: `catwalk-live-db-dev`
-- MCP machines app: `catwalk-live-mcp-servers`
+- Backend: `<your-backend-app>`
+- Postgres: `<your-database-app>`
+- MCP machines app: `<your-mcp-app>`
 
 MCP machine image:
 - Built from `deploy/Dockerfile`
@@ -47,9 +47,9 @@ Backend secrets (Fly):
 - `DATABASE_URL` (Fly provides `postgres://...`; backend normalizes to `postgresql+psycopg://...`)
 - `ENCRYPTION_KEY` (Fernet key)
 - `OPENROUTER_API_KEY`
-- `PUBLIC_URL` (e.g. `https://catwalk-live-backend-dev.fly.dev`)
+- `PUBLIC_URL` (e.g. `https://<your-backend-app>.fly.dev`)
 - `FLY_API_TOKEN`
-- `FLY_MCP_APP_NAME` (e.g. `catwalk-live-mcp-servers`)
+- `FLY_MCP_APP_NAME` (e.g. `<your-mcp-app>`)
 - `FLY_MCP_IMAGE` (image ref pushed by `deploy/build-and-push.*`)
 
 Frontend env:

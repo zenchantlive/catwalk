@@ -1,8 +1,14 @@
 [project]
-name = "mcp-remote-backend"
+name = "catwalk-live"
 version = "0.1.0"
-description = "Backend for MCP Remote Platform"
+description = "A Vercel-like platform for deploying MCP servers to Fly.io with Streamable HTTP"
+license = { text = "MIT" }
+authors = [
+    { name = "Jordan Hindo", email = "zenchant@users.noreply.github.com" }
+]
+readme = "README.md"
 requires-python = ">=3.12"
+keywords = ["mcp", "model-context-protocol", "fly.io", "fastapi", "deployment"]
 dependencies = [
     "fastapi",
     "openai>=2.11.0",

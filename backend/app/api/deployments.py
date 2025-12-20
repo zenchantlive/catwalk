@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm.attributes import flag_modified
 from typing import List
 from app.db.session import get_db
 from app.models.deployment import Deployment
@@ -8,29 +9,177 @@ from app.models.credential import Credential
 from app.schemas.deployment import DeploymentCreate, DeploymentResponse
 from app.services.encryption import EncryptionService
 from app.services.mcp_process_manager import start_server
+from app.services.package_validator import PackageValidator
+from app.services.credential_validator import CredentialValidator
 from app.core.config import settings
 import logging
+import json
 
 router = APIRouter()
 encryption_service = EncryptionService()
+package_validator = PackageValidator()
+credential_validator = CredentialValidator()
 logger = logging.getLogger(__name__)
+
+
+def _get_error_help(error_type: str, package: str = None) -> str:
+    """Return actionable help text for different error types"""
+    help_messages = {
+        "package_not_found": f"Verify '{package}' is published to npm or PyPI. Check spelling and package name.",
+        "credential_validation_failed": "Provide all required credentials. Check the credential form for required fields.",
+        "package_validation_failed": "Could not validate package. Check your internet connection or try again later.",
+        "runtime_detection_failed": "Could not determine if package is npm or Python. Check package name format.",
+    }
+    return help_messages.get(error_type, "Check deployment logs for details.")
+
+async def _process_deployment_initialization(
+    deployment_id: str,
+    package: str,
+    credentials_data: Dict[str, str],
+):
+    """Background task to handle package validation and server provisioning."""
+    from app.db.session import AsyncSessionLocal
+    
+    async with AsyncSessionLocal() as db:
+        try:
+            # 1. Fetch deployment
+            result = await db.execute(select(Deployment).where(Deployment.id == deployment_id))
+            deployment = result.scalar_one_or_none()
+            if not deployment:
+                logger.error(f"Deployment {deployment_id} not found in background task")
+                return
+
+            # 2. Package Validation
+            runtime = None
+            validation_result = {"valid": False, "error": "Unknown error"}
+            
+            try:
+                # Detect runtime by trying npm first (scoped packages always npm), then falling back to python
+                if package.startswith("@") or "/" in package:
+                    runtime = "npm"
+                    validation_result = await package_validator.validate_npm_package(package)
+                else:
+                    # Try npm first, then fall back to python
+                    validation_result = await package_validator.validate_npm_package(package)
+                    if validation_result["valid"]:
+                        runtime = "npm"
+                    else:
+                        validation_result = await package_validator.validate_python_package(package)
+                        if validation_result["valid"]:
+                            runtime = "python"
+                        else:
+                            deployment.status = "failed"
+                            deployment.error_message = f"Package '{package}' not found in npm or PyPI registries."
+                            await db.commit()
+                            return
+
+                if not validation_result["valid"]:
+                    deployment.status = "failed"
+                    deployment.error_message = validation_result.get("error", "Package validation failed")
+                    await db.commit()
+                    return
+
+                # Store runtime and version
+                mcp_config = deployment.schedule_config.setdefault("mcp_config", {})
+                mcp_config["runtime"] = runtime
+                mcp_config["version"] = validation_result.get("version")
+                flag_modified(deployment, "schedule_config")
+                
+            except Exception as e:
+                deployment.status = "failed"
+                deployment.error_message = f"Validation error: {str(e)}"
+                await db.commit()
+                return
+
+            # 3. Start the MCP server
+            try:
+                # Prepare environment variables from credentials
+                env_vars = {}
+                for service_name, decrypted_value in credentials_data.items():
+                    # Strip 'env_' prefix from service_name to get actual env var name
+                    env_var_name = service_name.removeprefix("env_")
+                    env_vars[env_var_name] = decrypted_value
+
+                logger.info(f"Starting MCP server for deployment {deployment.id}: {package} ({runtime})")
+
+                # CHECK FOR FLY.IO DEPLOYMENT FIRST
+                if settings.FLY_API_TOKEN:
+                    from app.services.fly_deployment_service import FlyDeploymentService
+                    fly_service = FlyDeploymentService()
+
+                    machine_id = await fly_service.create_machine(
+                        deployment_id=str(deployment.id),
+                        mcp_config=mcp_config,
+                        credentials=env_vars
+                    )
+
+                    if machine_id:
+                        deployment.machine_id = machine_id
+                        deployment.status = "running"
+                        await db.commit()
+                        logger.info(f"Fly machine {machine_id} started successfully")
+                    else:
+                        deployment.status = "failed"
+                        deployment.error_message = "Failed to create Fly.io machine"
+                        await db.commit()
+
+                else:
+                    # FALLBACK TO LOCAL SUBPROCESS
+                    success = await start_server(
+                        deployment_id=str(deployment.id),
+                        package=package,
+                        env_vars=env_vars,
+                        runtime=runtime
+                    )
+
+                    if success:
+                        deployment.status = "running"
+                    else:
+                        deployment.status = "failed"
+                        deployment.error_message = "Failed to start local subprocess"
+                    
+                    await db.commit()
+
+            except Exception as e:
+                logger.exception(f"Startup failed for deployment {deployment.id}")
+                deployment.status = "failed"
+                deployment.error_message = str(e)
+                await db.commit()
+
+        except Exception as e:
+            logger.exception(f"Unexpected error in background task for deployment {deployment_id}")
 
 @router.post("", response_model=DeploymentResponse)
 async def create_deployment(
     deployment_in: DeploymentCreate,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
     # 1. Create Deployment Record
     deployment = Deployment(
         name=deployment_in.name,
         schedule_config=deployment_in.schedule_config,
-        status="active" # Auto-activate for now
+        status="pending"
     )
     db.add(deployment)
-    await db.flush() # Generate ID without committing yet
+    await db.flush()
 
-    # 2. Encrypt and Save Credentials
+    # 2. Extract package and validate basic presence
+    mcp_config = deployment.schedule_config.get("mcp_config", {}) if deployment.schedule_config else {}
+    package = mcp_config.get("package")
+
+    if not package:
+        deployment.status = "failed"
+        deployment.error_message = "No 'package' specified in MCP config"
+        await db.commit()
+        raise HTTPException(status_code=400, detail={"error": "package_missing", "message": deployment.error_message})
+
+    # 3. Save Credentials and collect decrypted values for background task
+    # We decrypt here because the background task needs them, and it's easier to pass them directly
+    # than to re-query and re-decrypt in the background (though re-decrypting would be more secure).
+    # Since they are kept in memory briefly, it's acceptable for this flow.
+    credentials_data = {}
     for service, secret in deployment_in.credentials.items():
         encrypted_val = encryption_service.encrypt(secret)
         credential = Credential(
@@ -39,95 +188,24 @@ async def create_deployment(
             deployment_id=deployment.id
         )
         db.add(credential)
+        credentials_data[service] = secret
 
     await db.commit()
     await db.refresh(deployment)
 
-    # 3. Start the MCP server
-    mcp_config = deployment.schedule_config.get("mcp_config", {}) if deployment.schedule_config else {}
-    package = mcp_config.get("package")
+    # 4. Enqueue background initialization
+    background_tasks.add_task(
+        _process_deployment_initialization,
+        deployment_id=str(deployment.id),
+        package=package,
+        credentials_data=credentials_data
+    )
 
-    logger.info(f"Deployment {deployment.id} MCP config: {mcp_config}")
-    logger.info(f"Extracted package: {package}")
-
-    if package:
-        try:
-            # Query credentials separately to avoid greenlet issues
-            credentials_result = await db.execute(
-                select(Credential).where(Credential.deployment_id == deployment.id)
-            )
-            credentials_list = credentials_result.scalars().all()
-
-            # Prepare environment variables from credentials
-            env_vars = {}
-            for cred in credentials_list:
-                # Decrypt the credential value
-                decrypted_value = encryption_service.decrypt(cred.encrypted_data)
-                # Strip 'env_' prefix from service_name to get actual env var name
-                # e.g., 'env_TICKTICK_CLIENT_ID' -> 'TICKTICK_CLIENT_ID'
-                env_var_name = cred.service_name.removeprefix("env_")
-                env_vars[env_var_name] = decrypted_value
-
-            logger.info(f"Starting MCP server for deployment {deployment.id}: {package}")
-
-            # CHECK FOR FLY.IO DEPLOYMENT FIRST
-            if settings.FLY_API_TOKEN:
-                from app.services.fly_deployment_service import FlyDeploymentService
-                fly_service = FlyDeploymentService()
-                
-                logger.info("FLY_API_TOKEN found, attempting to create Fly.io machine...")
-                machine_id = await fly_service.create_machine(
-                    deployment_id=str(deployment.id),
-                    mcp_config=mcp_config,
-                    credentials=env_vars
-                )
-                
-                if machine_id:
-                    deployment.machine_id = machine_id
-                    deployment.status = "running"
-                    await db.commit()
-                    logger.info(f"Fly machine {machine_id} started successfully")
-                else:
-                    # Should be unreachable if create_machine raises exception on failure
-                    deployment.status = "failed"
-                    deployment.error_message = "Unknown error: Machine ID not returned"
-                    await db.commit()
-                    
-            else:
-                # FALLBACK TO LOCAL SUBPROCESS (Dev/WSL2 only)
-                logger.info("No FLY_API_TOKEN, falling back to local subprocess manager")
-                success = await start_server(
-                    deployment_id=str(deployment.id),
-                    package=package,
-                    env_vars=env_vars
-                )
-
-                if not success:
-                    deployment.status = "failed"
-                    deployment.error_message = "Failed to start local subprocess"
-                    await db.commit()
-                    logger.error(f"Failed to start local MCP server for deployment {deployment.id}")
-
-        except Exception as e:
-            logger.exception(f"Deployment failed for {deployment.id}")
-            deployment.status = "failed"
-            deployment.error_message = str(e)
-            await db.commit()
-    else:
-        deployment.status = "failed"
-        deployment.error_message = "No 'package' specified in MCP config"
-        await db.commit()
-        logger.warning(f"No package configured for deployment {deployment.id}, skipping server start")
-
-    # 4. Construct Response
-    # Base URL + /api/mcp/{id} (Streamable HTTP unified endpoint)
-    # Use PUBLIC_URL if set, otherwise fallback to request.base_url
+    # 5. Construct Immediate Response
     base_url = settings.PUBLIC_URL if settings.PUBLIC_URL else str(request.base_url).rstrip("/")
-    # New MCP Streamable HTTP transport uses single unified endpoint (no /sse suffix)
     connection_url = f"{base_url}{settings.API_V1_STR}/mcp/{deployment.id}"
     
-    # Map to Pydantic
-    response = DeploymentResponse(
+    return DeploymentResponse(
         id=deployment.id,
         name=deployment.name,
         status=deployment.status,
@@ -137,7 +215,6 @@ async def create_deployment(
         connection_url=connection_url,
         error_message=deployment.error_message
     )
-    return response
 
 @router.get("", response_model=List[DeploymentResponse])
 async def list_deployments(

@@ -3,7 +3,7 @@
 ## Base URL
 
 - **Development**: `http://localhost:8000`
-- **Production (current)**: `https://catwalk-live-backend-dev.fly.dev`
+- **Production (current)**: `https://<your-backend-app>.fly.dev`
 
 ## Authentication
 
@@ -80,7 +80,7 @@ Creates a deployment record, stores encrypted credentials, and (if configured) s
   "name": "My TickTick",
   "status": "running | failed | active",
   "schedule_config": { "mcp_config": { "...": "..." } },
-  "connection_url": "https://catwalk-live-backend-dev.fly.dev/api/mcp/<deployment_id>",
+  "connection_url": "https://<your-backend-app>.fly.dev/api/mcp/<deployment_id>",
   "error_message": null,
   "created_at": "2025-12-15T00:00:00Z",
   "updated_at": "2025-12-15T00:00:00Z"

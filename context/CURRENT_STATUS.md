@@ -1,6 +1,6 @@
 # Current Development Status
 
-**Last Updated**: 2025-12-15
+**Last Updated**: 2025-12-17
 **Current Phase**: Phase 6 - MCP Server Container Deployment (WORKING ✅)
 
 ---
@@ -40,13 +40,14 @@
 - ⚠️ **NOTE**: Subprocess spawning doesn't work on Windows (asyncio limitation)
 
 ### Phase 5.5: Backend Production Deployment (NEW - COMPLETED!)
-- ✅ **Backend deployed to Fly.io**: https://catwalk-live-backend-dev.fly.dev
+- ✅ **Backend deployed to Fly.io**: https://<your-backend-app>.fly.dev
 - ✅ PostgreSQL database on Fly.io with Alembic migrations
 - ✅ Health checks passing at `/api/health`
 - ✅ All API endpoints publicly accessible
 - ✅ Frontend configured to use production backend
 - ✅ Docker image built and deployed successfully
 - ✅ Always-on backend with `min_machines_running = 1`
+- ✅ **RegistryService Refactored**: Concurrency safety, timeouts, and robustness improvements
 
 ### Phase 6: MCP Server Container Deployment (WORKING ✅)
 - ✅ Backend creates Fly Machines for deployments (when `FLY_API_TOKEN` is set)
@@ -54,12 +55,19 @@
 - ✅ Backend forwards Streamable HTTP to the MCP machine over Fly private networking
 - ✅ End-to-end connectivity verified from backend → machine on `:8080`
 
+### Phase 1: Validation & Error Handling (NEW - COMPLETED! ✅)
+- ✅ Package validation (npm and PyPI registries)
+- ✅ Credential validation (required fields checked)
+- ✅ Structured error responses with actionable help messages
+- ✅ Frontend error display (user-visible error messages)
+- ✅ Runtime detection (npm vs Python automatic)
+
 ---
 
 ## 🎉 What Works Right Now
 
 ### Production Backend (Fly.io)
-**URL**: https://catwalk-live-backend-dev.fly.dev
+**URL**: https://<your-backend-app>.fly.dev
 
 **Working Endpoints**:
 - `GET /api/health` - Health checks (returns `{"status": "healthy"}`)
@@ -69,7 +77,7 @@
 - `GET /api/forms/generate/{service}` - Dynamic credential forms
 
 **Infrastructure**:
-- PostgreSQL database (catwalk-live-db-dev)
+- PostgreSQL database (<your-database-app>)
 - 512MB RAM, shared CPU
 - Always-on (auto_stop_machines = "off")
 - Region: San Jose (sjc)
@@ -89,12 +97,12 @@
 
 ## 🚧 What's NOT Working Yet
 
-### Hardening + UX (Next)
+### Hardening + UX (Next - Phase 2)
 
-What remains (now that machines deploy and tool calls connect):
-- Health monitoring loop (beyond Fly restart policy) and better “unhealthy” status reporting
+What remains (now that validation and deployment work):
+- ✅ ~~Package and credential validation~~ (COMPLETED in Phase 1!)
+- Health monitoring loop (beyond Fly restart policy) and better "unhealthy" status reporting
 - Clear progress/status surfaced to the frontend during machine start and package install
-- Stronger validation that analysis produced a runnable `mcp_config.package` for arbitrary repos
 
 ---
 
@@ -182,8 +190,8 @@ fly secrets set DATABASE_URL="postgresql+psycopg://user:pass@db-name.internal:54
 
 ### Streamable HTTP Bridging Details (Production)
 
-- Claude-visible URL (stable): `https://catwalk-live-backend-dev.fly.dev/api/mcp/{deployment_id}`
-- Backend → machine (Fly private network): `http://{machine_id}.vm.catwalk-live-mcp-servers.internal:8080/mcp`
+- Claude-visible URL (stable): `https://<your-backend-app>.fly.dev/api/mcp/{deployment_id}`
+- Backend → machine (Fly private network): `http://{machine_id}.vm.<your-mcp-app>.internal:8080/mcp`
 - MCP machine endpoints (mcp-proxy):
   - `GET /status` (health)
   - `GET/POST /mcp` (Streamable HTTP)
@@ -196,7 +204,7 @@ Deployment:
   - name (str)
   - schedule_config (JSON) → { mcp_config: { package, tools, resources, prompts } }
   - status (str)
-  - connection_url (str) → e.g., "https://catwalk-live-backend-dev.fly.dev/api/mcp/{id}"
+  - connection_url (str) → e.g., "https://<your-backend-app>.fly.dev/api/mcp/{id}"
   - created_at, updated_at
 
 Credential:
@@ -229,8 +237,8 @@ Credential:
 
 **Infrastructure**:
 - **Fly.io** (Backend deployed!)
-  - Backend: catwalk-live-backend-dev
-  - Database: catwalk-live-db-dev
+  - Backend: <your-backend-app>
+  - Database: <your-database-app>
   - Region: San Jose (sjc)
   - 512MB RAM, shared CPU, always-on
 
@@ -246,7 +254,7 @@ Hard requirements for a repo to deploy successfully:
 3. Package must run under `npx -y $MCP_PACKAGE` (current MVP assumption)
 
 Operational checks (from within the backend machine):
-- `curl http://{machine_id}.vm.catwalk-live-mcp-servers.internal:8080/status`
+- `curl http://{machine_id}.vm.<your-mcp-app>.internal:8080/status`
 - `curl -H 'accept: application/json' -H 'content-type: application/json' -H 'MCP-Protocol-Version: 2025-06-18' http://{machine_id}...:8080/mcp --data '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{...}}'`
 
 ---
@@ -303,11 +311,11 @@ Operational checks (from within the backend machine):
 ## 💡 Testing Checklist
 
 ### Production Backend (Fly.io) - WORKING ✅
-- [x] Health endpoint responds: `curl https://catwalk-live-backend-dev.fly.dev/api/health`
+- [x] Health endpoint responds: `curl https://<your-backend-app>.fly.dev/api/health`
 - [x] Analyze endpoint works: Test via frontend
 - [x] Create deployment: Test via frontend
 - [x] List deployments: Test via frontend
-- [x] MCP endpoint exists: `curl https://catwalk-live-backend-dev.fly.dev/api/mcp/{id}`
+- [x] MCP endpoint exists: `curl https://<your-backend-app>.fly.dev/api/mcp/{id}`
 - [x] Database migrations applied
 - [x] Credentials stored encrypted
 
@@ -323,12 +331,12 @@ Operational checks (from within the backend machine):
 
 ## 🔑 Deployment Secrets (Fly.io)
 
-**Set on catwalk-live-backend-dev**:
+**Set on <your-backend-app>**:
 ```bash
 DATABASE_URL       # Auto-set by fly postgres attach
 ENCRYPTION_KEY     # Fernet key for credential encryption
 OPENROUTER_API_KEY # Claude API for repo analysis
-PUBLIC_URL         # https://catwalk-live-backend-dev.fly.dev
+PUBLIC_URL         # https://<your-backend-app>.fly.dev
 ```
 
 **Generate Encryption Key**:
@@ -342,10 +350,10 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 
 | Service | URL | Status |
 |---------|-----|--------|
-| Backend API | https://catwalk-live-backend-dev.fly.dev | ✅ Live |
-| Backend Health | https://catwalk-live-backend-dev.fly.dev/api/health | ✅ Passing |
+| Backend API | https://<your-backend-app>.fly.dev | ✅ Live |
+| Backend Health | https://<your-backend-app>.fly.dev/api/health | ✅ Passing |
 | Frontend (Local) | http://localhost:3000 | ✅ Working |
-| PostgreSQL | catwalk-live-db-dev.internal (Fly private) | ✅ Running |
+| PostgreSQL | <your-database-app>.internal (Fly private) | ✅ Running |
 
 ---
 
@@ -354,13 +362,13 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 ### Test Production Backend
 ```bash
 # Health check
-curl https://catwalk-live-backend-dev.fly.dev/api/health
+curl https://<your-backend-app>.fly.dev/api/health
 
 # View logs
-fly logs --app catwalk-live-backend-dev
+fly logs --app <your-backend-app>
 
 # Check status
-fly status --app catwalk-live-backend-dev
+fly status --app <your-backend-app>
 ```
 
 ### Run Frontend Locally
@@ -375,20 +383,26 @@ bun run dev
 ### Deploy Backend Changes
 ```bash
 cd backend
-fly deploy --app catwalk-live-backend-dev
+fly deploy --app <your-backend-app>
 ```
 
 ---
 
 ## 🎓 For Future Claude Sessions
 
-**You are currently at**: Phase 6 Working (Streamable HTTP end-to-end)
+**You are currently at**: Phase 1 Complete! (Validation & Error Handling) + Phase 6 Working (Streamable HTTP end-to-end)
 
-**What works**: Full backend API on Fly.io, frontend locally, deployments stored in database
+**What works**:
+- Full backend API on Fly.io
+- Frontend locally with error display
+- Package validation (npm/PyPI)
+- Credential validation
+- Deployments with structured error messages
+- End-to-end MCP tool calls
 
-**What doesn't work**: Health monitoring loop + richer deployment progress (non-blocking)
+**What doesn't work**: Health monitoring loop + richer deployment progress (Phase 2)
 
-**Next task**: Harden analysis → `mcp_config.package` mapping + improve machine health/status reporting
+**Next task**: Phase 2 - Health Monitoring & Status tracking (see `context/plans/roadmap/phase-2-monitoring.md`)
 
 **Reference code**: `remote-mcp-pilot/deploy/` has working Fly.io deployment
 
@@ -396,4 +410,5 @@ fly deploy --app catwalk-live-backend-dev
 1. This file (CURRENT_STATUS.md)
 2. `CLAUDE.md` for deployment pitfalls
 3. `context/ARCHITECTURE.md` for system design
-4. `app/api/deployments.py` to see where Fly deployment should hook in
+4. `app/api/deployments.py` to see validation integration
+5. `app/services/package_validator.py` and `credential_validator.py` for validation logic

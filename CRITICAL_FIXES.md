@@ -110,7 +110,7 @@ cd catwalk-live\deploy
 
 This will output an image name like:
 ```
-registry.fly.io/catwalk-live-mcp-servers:deployment-01JEXXX
+registry.fly.io/<your-mcp-app>:deployment-01JEXXX
 ```
 
 ### Step 2: Set the Environment Variable
@@ -118,14 +118,14 @@ registry.fly.io/catwalk-live-mcp-servers:deployment-01JEXXX
 Copy the image name and run:
 
 ```powershell
-fly secrets set FLY_MCP_IMAGE="registry.fly.io/catwalk-live-mcp-servers:deployment-01JEXXX" --app catwalk-live-backend-dev
+fly secrets set FLY_MCP_IMAGE="registry.fly.io/<your-mcp-app>:deployment-01JEXXX" --app <your-backend-app>
 ```
 
 ### Step 3: Deploy the Backend
 
 ```powershell
 cd ..\backend
-fly deploy --app catwalk-live-backend-dev
+fly deploy --app <your-backend-app>
 ```
 
 This will:
@@ -140,7 +140,7 @@ This will:
 
 ```powershell
 # First request (cache miss)
-curl -X POST https://catwalk-live-backend-dev.fly.dev/api/analyze `
+curl -X POST https://<your-backend-app>.fly.dev/api/analyze `
   -H "Content-Type: application/json" `
   -d '{"repo_url": "https://github.com/alexarevalo9/ticktick-mcp-server"}'
 ```
@@ -149,7 +149,7 @@ curl -X POST https://catwalk-live-backend-dev.fly.dev/api/analyze `
 
 ```powershell
 # Second request (cache HIT)
-curl -X POST https://catwalk-live-backend-dev.fly.dev/api/analyze `
+curl -X POST https://<your-backend-app>.fly.dev/api/analyze `
   -H "Content-Type: application/json" `
   -d '{"repo_url": "https://github.com/alexarevalo9/ticktick-mcp-server"}'
 ```
@@ -165,7 +165,7 @@ curl -X POST https://catwalk-live-backend-dev.fly.dev/api/analyze `
 **Expected logs**:
 ```
 Forwarding tool call to Fly machine 148ed235e66558
-Forwarding tool call to http://148ed235e66558.vm.catwalk-live-mcp-servers.internal:8080
+Forwarding tool call to http://148ed235e66558.vm.<your-mcp-app>.internal:8080
 ```
 
 **Expected result**: Tool works! ✅
@@ -196,7 +196,7 @@ Claude → Backend (/api/mcp/{id})
        Check deployment.machine_id
            ↓
        If Fly machine:
-         → Forward to http://{machine_id}.vm.catwalk-live-mcp-servers.internal:8080
+         → Forward to http://{machine_id}.vm.<your-mcp-app>.internal:8080
            ↓
          mcp-proxy (running in Fly machine)
            ↓
@@ -238,17 +238,17 @@ When you start a new session, verify:
 
 ```powershell
 # 1. Check if cache table exists
-fly postgres connect --app catwalk-live-db-dev
+fly postgres connect --app <your-database-app>
 \dt analysis_cache
 
 # 2. Check if MCP app has machines
-fly status --app catwalk-live-mcp-servers
+fly status --app <your-mcp-app>
 
 # 3. Check backend logs for cache hits
-fly logs --app catwalk-live-backend-dev | grep -i "cache hit"
+fly logs --app <your-backend-app> | grep -i "cache hit"
 
 # 4. Check backend logs for Fly forwarding
-fly logs --app catwalk-live-backend-dev | grep -i "forwarding tool call"
+fly logs --app <your-backend-app> | grep -i "forwarding tool call"
 ```
 
 ---

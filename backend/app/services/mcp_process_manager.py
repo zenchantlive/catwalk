@@ -10,6 +10,7 @@ This is for local testing. In production (Fly.io), each deployment will be a sep
 import asyncio
 import json
 import logging
+import os
 import uuid
 import sys
 import subprocess
@@ -34,7 +35,7 @@ class ServerProcess:
     Handles JSON-RPC communication over stdin/stdout with the MCP server.
     """
 
-    def __init__(self, deployment_id: str, package: str, env_vars: Dict[str, str]):
+    def __init__(self, deployment_id: str, package: str, env_vars: Dict[str, str], runtime: Optional[str] = None):
         """
         Initialize a server process configuration.
 
@@ -42,10 +43,12 @@ class ServerProcess:
             deployment_id: Unique identifier for the deployment
             package: NPM package name (e.g., '@alexarevalo.ai/mcp-server-ticktick')
             env_vars: Environment variables to pass to the server
+            runtime: Explicit runtime ('npm' or 'python'), optional
         """
         self.deployment_id = deployment_id
         self.package = package
         self.env_vars = env_vars
+        self.runtime = runtime
         self.process: Optional[Process] = None
         self.lock = asyncio.Lock()  # Prevent concurrent stdin/stdout access
 
@@ -58,14 +61,16 @@ class ServerProcess:
         """
         try:
             # Build the command to run the MCP server
-            # For npm packages: npx -y <package>
-            # For Python packages: python -m <module> or uv run <package>
-            if self.package.startswith("@") or "/" in self.package:
+            if self.runtime == "npm":
+                cmd = ["npx", "-y", self.package]
+            elif self.runtime == "python":
+                cmd = [sys.executable, "-m", self.package]
+            elif self.package.startswith("@") or "/" in self.package:
                 # NPM package (e.g., @alexarevalo.ai/mcp-server-ticktick)
                 cmd = ["npx", "-y", self.package]
             else:
-                # Python package (simple heuristic)
-                cmd = ["python", "-m", self.package]
+                # Python package (simple heuristic) - use sys.executable to ensure correct Python interpreter
+                cmd = [sys.executable, "-m", self.package]
 
             logger.info(f"Starting MCP server for deployment {self.deployment_id}")
             logger.info(f"  Package: {self.package}")
@@ -81,7 +86,7 @@ class ServerProcess:
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
-                    env={**self.env_vars},
+                    env={**os.environ, **self.env_vars},  # Inherit parent env plus credentials
                     text=False  # Binary mode for JSON-RPC
                 )
                 logger.info(f"MCP server started for deployment {self.deployment_id} (PID: {self.process.pid})")
@@ -93,7 +98,7 @@ class ServerProcess:
                     stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
-                    env={**self.env_vars}  # Pass credentials as environment variables
+                    env={**os.environ, **self.env_vars}  # Inherit parent env plus credentials
                 )
 
                 logger.info(f"MCP server started for deployment {self.deployment_id} (PID: {self.process.pid})")
@@ -240,7 +245,7 @@ class ServerProcess:
 
 # Global process manager functions
 
-async def start_server(deployment_id: str, package: str, env_vars: Dict[str, str]) -> bool:
+async def start_server(deployment_id: str, package: str, env_vars: Dict[str, str], runtime: Optional[str] = None) -> bool:
     """
     Start an MCP server for a deployment.
 
@@ -248,6 +253,7 @@ async def start_server(deployment_id: str, package: str, env_vars: Dict[str, str
         deployment_id: Unique deployment identifier
         package: NPM/Python package name
         env_vars: Environment variables (credentials)
+        runtime: Explicit runtime ('npm' or 'python'), optional
 
     Returns:
         True if started successfully
@@ -258,7 +264,7 @@ async def start_server(deployment_id: str, package: str, env_vars: Dict[str, str
         return True
 
     # Create and start the server process
-    server = ServerProcess(deployment_id, package, env_vars)
+    server = ServerProcess(deployment_id, package, env_vars, runtime)
     success = await server.start()
 
     if success:

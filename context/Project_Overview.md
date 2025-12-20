@@ -118,7 +118,7 @@ Platform displays:
 ```
 ✅ Your TickTick MCP server is ready!
 
-URL: https://catwalk-live-backend-dev.fly.dev/api/mcp/<deployment_id>
+URL: https://<your-backend-app>.fly.dev/api/mcp/<deployment_id>
 
 [Copy URL] button
 
@@ -137,7 +137,7 @@ User adds URL to Claude, then:
 ```
 User: "What are my TickTick tasks for today?"
 
-Claude: [connects to https://catwalk-live-backend-dev.fly.dev/api/mcp/<deployment_id>]
+Claude: [connects to https://<your-backend-app>.fly.dev/api/mcp/<deployment_id>]
         [Streamable HTTP → backend → mcp-proxy (/mcp) → MCP server → TickTick API]
         [receives tasks]
         

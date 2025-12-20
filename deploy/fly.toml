@@ -2,7 +2,7 @@
 # NOTE: This file is for reference only. Machines are created dynamically via the API.
 # The backend uses this configuration as a template when calling the Fly Machines API.
 
-app = "catwalk-live-mcp-servers"
+app = "<your-mcp-app>"
 primary_region = "sjc"  # San Jose (same region as backend)
 
 [build]

@@ -1,7 +1,14 @@
 {
-  "name": "frontend",
+  "name": "catwalk-live-frontend",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
+  "author": "Jordan Hindo",
+  "description": "Frontend for Catwalk Live - MCP server deployment platform",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zenchantlive/catwalk.git"
+  },
   "scripts": {
     "dev": "next dev",
     "start": "next start",
