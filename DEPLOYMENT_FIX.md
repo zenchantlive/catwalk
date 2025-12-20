@@ -77,14 +77,14 @@ cd catwalk-live/deploy
 **Or manually:**
 ```bash
 cd deploy
-fly deploy --build-only --push --app catwalk-live-mcp-servers
+fly deploy --build-only --push --app <your-mcp-app>
 ```
 
 This will output something like:
 ```
 --> Building image with Fly
 ...
---> Pushing image to registry.fly.io/catwalk-live-mcp-servers:deployment-01JEXXX
+--> Pushing image to registry.fly.io/<your-mcp-app>:deployment-01JEXXX
 ```
 
 ### Step 2: Set the Image in Backend Secrets
@@ -92,8 +92,8 @@ This will output something like:
 Copy the image name from Step 1 (the full `registry.fly.io/...` path) and run:
 
 ```bash
-fly secrets set FLY_MCP_IMAGE="registry.fly.io/catwalk-live-mcp-servers:deployment-01JEXXX" \
-  --app catwalk-live-backend-dev
+fly secrets set FLY_MCP_IMAGE="registry.fly.io/<your-mcp-app>:deployment-01JEXXX" \
+  --app <your-backend-app>
 ```
 
 **Note**: Replace `deployment-01JEXXX` with the actual deployment ID from your build output.
@@ -104,7 +104,7 @@ fly secrets set FLY_MCP_IMAGE="registry.fly.io/catwalk-live-mcp-servers:deployme
 
 ```bash
 cd backend
-fly deploy --app catwalk-live-backend-dev
+fly deploy --app <your-backend-app>
 ```
 
 ---
@@ -113,13 +113,13 @@ fly deploy --app catwalk-live-backend-dev
 
 ### 1. Check Startup Logs
 ```bash
-fly logs --app catwalk-live-backend-dev
+fly logs --app <your-backend-app>
 ```
 
 **Look for**:
 ```
 FlyDeploymentService initialized:
-  - App Name: catwalk-live-mcp-hosts
+  - App Name: <your-mcp-app>
   - Image: registry.fly.io/catwalk-live-mcp-host:latest
   - API Token: SET
 ```
@@ -130,14 +130,14 @@ If you see `Image: NOT SET (WILL FAIL!)`, the environment variable is missing.
 
 **First request** (cache miss):
 ```bash
-curl -X POST https://catwalk-live-backend-dev.fly.dev/api/analyze \
+curl -X POST https://<your-backend-app>.fly.dev/api/analyze \
   -H "Content-Type: application/json" \
   -d '{"repo_url": "https://github.com/user/repo"}'
 ```
 
 **Second request** (cache hit):
 ```bash
-curl -X POST https://catwalk-live-backend-dev.fly.dev/api/analyze \
+curl -X POST https://<your-backend-app>.fly.dev/api/analyze \
   -H "Content-Type: application/json" \
   -d '{"repo_url": "https://github.com/user/repo/"}'  # Note trailing slash
 ```
@@ -146,7 +146,7 @@ curl -X POST https://catwalk-live-backend-dev.fly.dev/api/analyze \
 
 ### 3. Check Cache Table
 ```bash
-fly postgres connect --app catwalk-live-db-dev
+fly postgres connect --app <your-database-app>
 ```
 
 ```sql
@@ -178,8 +178,8 @@ Try creating a deployment via the frontend. The error should now be **clear**:
 ## Next Steps
 
 1. **Set FLY_MCP_IMAGE** environment variable (see above)
-2. **Deploy the backend**: `fly deploy --app catwalk-live-backend-dev`
-3. **Monitor logs**: `fly logs --app catwalk-live-backend-dev`
+2. **Deploy the backend**: `fly deploy --app <your-backend-app>`
+3. **Monitor logs**: `fly logs --app <your-backend-app>`
 4. **Test analysis caching**: Try analyzing the same repo twice
 5. **Test deployment creation**: Create a deployment and check for clear error messages
 

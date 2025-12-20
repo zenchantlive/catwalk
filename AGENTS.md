@@ -10,7 +10,7 @@ You are a Senior Full-Stack Engineer and **Pragmatic Quality Specialist** for **
 **Phase**: 6 Working ✅ - MCP Machines + Streamable HTTP Bridge
 
 **What's Working**:
-- ✅ Backend API fully deployed at https://catwalk-live-backend-dev.fly.dev
+- ✅ Backend API fully deployed at https://<your-backend-app>.fly.dev
 - ✅ PostgreSQL database on Fly.io with migrations
 - ✅ All endpoints accessible (analyze, deployments, MCP, forms, health)
 - ✅ Frontend runs locally, connects to production backend via proxy
@@ -38,18 +38,18 @@ You are a Senior Full-Stack Engineer and **Pragmatic Quality Specialist** for **
 ### Production Deployment (Fly.io)
 ```bash
 # Backend is deployed - view logs
-fly logs --app catwalk-live-backend-dev
+fly logs --app <your-backend-app>
 
 # Check backend status
-fly status --app catwalk-live-backend-dev
+fly status --app <your-backend-app>
 
 # Deploy backend changes
 cd backend
-fly deploy --app catwalk-live-backend-dev
+fly deploy --app <your-backend-app>
 
 # Check database
-fly status --app catwalk-live-db-dev
-fly postgres connect --app catwalk-live-db-dev
+fly status --app <your-database-app>
+fly postgres connect --app <your-database-app>
 ```
 
 ### Local Development
@@ -81,7 +81,7 @@ ruff format .              # Format
 ### Health Checks
 ```bash
 # Production backend
-curl https://catwalk-live-backend-dev.fly.dev/api/health
+curl https://<your-backend-app>.fly.dev/api/health
 
 # Local frontend (proxies to production)
 open http://localhost:3000
@@ -110,10 +110,10 @@ Frontend (Next.js 15, local) → Backend (FastAPI, Fly.io) → MCP Machines (Fly
 
 ### Deployment Details
 **Production Backend**:
-- URL: https://catwalk-live-backend-dev.fly.dev
+- URL: https://<your-backend-app>.fly.dev
 - Region: San Jose (sjc)
 - Specs: 512MB RAM, shared CPU, always-on
-- Database: catwalk-live-db-dev (Postgres on Fly.io)
+- Database: <your-database-app> (Postgres on Fly.io)
 
 **Frontend** (Local):
 - Runs on: http://localhost:3000
@@ -255,7 +255,7 @@ class FlyDeploymentService:
 - Write tests for *critical* logic and components
 - Ensure high code quality and type safety
 - Use `fly deploy` for backend changes
-- Check logs with `fly logs --app catwalk-live-backend-dev`
+- Check logs with `fly logs --app <your-backend-app>`
 
 ### ⚠️ Ask First
 - Before modifying database schemas or `alembic` migrations
@@ -301,13 +301,13 @@ class FlyDeploymentService:
 ### Database Issues
 ```bash
 # Check database status
-fly status --app catwalk-live-db-dev
+fly status --app <your-database-app>
 
 # View database logs
-fly logs --app catwalk-live-db-dev
+fly logs --app <your-database-app>
 
 # Connect to Postgres console
-fly postgres connect --app catwalk-live-db-dev
+fly postgres connect --app <your-database-app>
 
 # If "no active leader found" - recreate database (see CLAUDE.md)
 ```
@@ -315,16 +315,16 @@ fly postgres connect --app catwalk-live-db-dev
 ### Deployment Issues
 ```bash
 # View backend logs
-fly logs --app catwalk-live-backend-dev
+fly logs --app <your-backend-app>
 
 # Check health
-curl https://catwalk-live-backend-dev.fly.dev/api/health
+curl https://<your-backend-app>.fly.dev/api/health
 
 # Rebuild without cache
-fly deploy --no-cache --app catwalk-live-backend-dev
+fly deploy --no-cache --app <your-backend-app>
 
 # SSH into container
-fly ssh console --app catwalk-live-backend-dev
+fly ssh console --app <your-backend-app>
 ```
 
 ### Common Errors

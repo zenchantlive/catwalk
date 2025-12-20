@@ -57,7 +57,7 @@ This phase adds:
   ```bash
   alembic upgrade head
   # Verify table exists
-  fly postgres connect --app catwalk-live-db-dev
+  fly postgres connect --app <your-database-app>
   \d deployment_logs
   ```
 
@@ -252,7 +252,7 @@ This phase adds:
 - [ ] **Test Fly logs API access**
   ```bash
   curl -H "Authorization: Bearer $FLY_API_TOKEN" \
-    https://api.machines.dev/v1/apps/catwalk-live-mcp-servers/machines/{machine_id}/logs
+    https://api.machines.dev/v1/apps/<your-mcp-app>/machines/{machine_id}/logs
   ```
 
 ### 8. Testing & Validation
@@ -267,7 +267,7 @@ This phase adds:
 
 - [ ] **Test log API**
   ```bash
-  curl https://catwalk-live-backend-dev.fly.dev/api/deployments/{id}/logs?limit=50
+  curl https://<your-backend-app>.fly.dev/api/deployments/{id}/logs?limit=50
   # Should return last 50 log entries
   ```
 
@@ -462,7 +462,7 @@ export default function LogViewer({ deploymentId }: { deploymentId: string }) {
 4. **Deploy to Fly.io**
    ```bash
    cd backend
-   fly deploy --app catwalk-live-backend-dev
+   fly deploy --app <your-backend-app>
    ```
 
 5. **Test end-to-end**

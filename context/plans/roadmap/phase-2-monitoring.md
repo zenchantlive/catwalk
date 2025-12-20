@@ -195,7 +195,7 @@ This phase adds:
   - [ ] Deploy TickTick server
   - [ ] Watch status transitions:
     ```bash
-    watch -n 2 'curl -s https://catwalk-live-backend-dev.fly.dev/api/deployments/{id} | jq ".status, .progress_message"'
+    watch -n 2 'curl -s https://<your-backend-app>.fly.dev/api/deployments/{id} | jq ".status, .progress_message"'
     ```
   - [ ] Verify: pending → installing → starting → running
   - [ ] Deploy server that fails to start (invalid package)
@@ -356,7 +356,7 @@ async def wait_for_health(machine_id: str, timeout: int) -> bool:
 
 ### Test 1: Healthy deployment
 1. Deploy TickTick with valid credentials
-2. Watch logs: `fly logs --app catwalk-live-backend-dev`
+2. Watch logs: `fly logs --app <your-backend-app>`
 3. Expected status transitions:
    - pending (0s)
    - installing (5s)
@@ -418,9 +418,9 @@ async def wait_for_health(machine_id: str, timeout: int) -> bool:
 4. **Deploy to Fly.io**
    ```bash
    cd backend
-   fly deploy --app catwalk-live-backend-dev
+   fly deploy --app <your-backend-app>
    # Monitor for health monitor startup
-   fly logs --app catwalk-live-backend-dev | grep "HealthMonitor"
+   fly logs --app <your-backend-app> | grep "HealthMonitor"
    ```
 
 5. **Test end-to-end**

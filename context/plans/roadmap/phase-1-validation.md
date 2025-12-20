@@ -251,7 +251,7 @@ if package:
 
 ### Test 1: Valid npm package
 ```bash
-curl -X POST https://catwalk-live-backend-dev.fly.dev/api/deployments \
+curl -X POST https://<your-backend-app>.fly.dev/api/deployments \
   -H "Content-Type: application/json" \
   -d '{
     "name": "TickTick Test",
@@ -271,7 +271,7 @@ curl -X POST https://catwalk-live-backend-dev.fly.dev/api/deployments \
 
 ### Test 2: Invalid package
 ```bash
-curl -X POST https://catwalk-live-backend-dev.fly.dev/api/deployments \
+curl -X POST https://<your-backend-app>.fly.dev/api/deployments \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Invalid Test",
@@ -294,7 +294,7 @@ curl -X POST https://catwalk-live-backend-dev.fly.dev/api/deployments \
 
 ### Test 3: Missing required credential
 ```bash
-curl -X POST https://catwalk-live-backend-dev.fly.dev/api/deployments \
+curl -X POST https://<your-backend-app>.fly.dev/api/deployments \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Missing Creds Test",
@@ -362,8 +362,8 @@ curl -X POST https://catwalk-live-backend-dev.fly.dev/api/deployments \
 4. **Deploy to Fly.io**
    ```bash
    cd backend
-   fly deploy --app catwalk-live-backend-dev
-   fly logs --app catwalk-live-backend-dev  # Monitor for errors
+   fly deploy --app <your-backend-app>
+   fly logs --app <your-backend-app>  # Monitor for errors
    ```
 
 5. **Test end-to-end**

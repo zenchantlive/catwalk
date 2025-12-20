@@ -40,7 +40,7 @@
 - ⚠️ **NOTE**: Subprocess spawning doesn't work on Windows (asyncio limitation)
 
 ### Phase 5.5: Backend Production Deployment (NEW - COMPLETED!)
-- ✅ **Backend deployed to Fly.io**: https://catwalk-live-backend-dev.fly.dev
+- ✅ **Backend deployed to Fly.io**: https://<your-backend-app>.fly.dev
 - ✅ PostgreSQL database on Fly.io with Alembic migrations
 - ✅ Health checks passing at `/api/health`
 - ✅ All API endpoints publicly accessible
@@ -67,7 +67,7 @@
 ## 🎉 What Works Right Now
 
 ### Production Backend (Fly.io)
-**URL**: https://catwalk-live-backend-dev.fly.dev
+**URL**: https://<your-backend-app>.fly.dev
 
 **Working Endpoints**:
 - `GET /api/health` - Health checks (returns `{"status": "healthy"}`)
@@ -77,7 +77,7 @@
 - `GET /api/forms/generate/{service}` - Dynamic credential forms
 
 **Infrastructure**:
-- PostgreSQL database (catwalk-live-db-dev)
+- PostgreSQL database (<your-database-app>)
 - 512MB RAM, shared CPU
 - Always-on (auto_stop_machines = "off")
 - Region: San Jose (sjc)
@@ -190,8 +190,8 @@ fly secrets set DATABASE_URL="postgresql+psycopg://user:pass@db-name.internal:54
 
 ### Streamable HTTP Bridging Details (Production)
 
-- Claude-visible URL (stable): `https://catwalk-live-backend-dev.fly.dev/api/mcp/{deployment_id}`
-- Backend → machine (Fly private network): `http://{machine_id}.vm.catwalk-live-mcp-servers.internal:8080/mcp`
+- Claude-visible URL (stable): `https://<your-backend-app>.fly.dev/api/mcp/{deployment_id}`
+- Backend → machine (Fly private network): `http://{machine_id}.vm.<your-mcp-app>.internal:8080/mcp`
 - MCP machine endpoints (mcp-proxy):
   - `GET /status` (health)
   - `GET/POST /mcp` (Streamable HTTP)
@@ -204,7 +204,7 @@ Deployment:
   - name (str)
   - schedule_config (JSON) → { mcp_config: { package, tools, resources, prompts } }
   - status (str)
-  - connection_url (str) → e.g., "https://catwalk-live-backend-dev.fly.dev/api/mcp/{id}"
+  - connection_url (str) → e.g., "https://<your-backend-app>.fly.dev/api/mcp/{id}"
   - created_at, updated_at
 
 Credential:
@@ -237,8 +237,8 @@ Credential:
 
 **Infrastructure**:
 - **Fly.io** (Backend deployed!)
-  - Backend: catwalk-live-backend-dev
-  - Database: catwalk-live-db-dev
+  - Backend: <your-backend-app>
+  - Database: <your-database-app>
   - Region: San Jose (sjc)
   - 512MB RAM, shared CPU, always-on
 
@@ -254,7 +254,7 @@ Hard requirements for a repo to deploy successfully:
 3. Package must run under `npx -y $MCP_PACKAGE` (current MVP assumption)
 
 Operational checks (from within the backend machine):
-- `curl http://{machine_id}.vm.catwalk-live-mcp-servers.internal:8080/status`
+- `curl http://{machine_id}.vm.<your-mcp-app>.internal:8080/status`
 - `curl -H 'accept: application/json' -H 'content-type: application/json' -H 'MCP-Protocol-Version: 2025-06-18' http://{machine_id}...:8080/mcp --data '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{...}}'`
 
 ---
@@ -311,11 +311,11 @@ Operational checks (from within the backend machine):
 ## 💡 Testing Checklist
 
 ### Production Backend (Fly.io) - WORKING ✅
-- [x] Health endpoint responds: `curl https://catwalk-live-backend-dev.fly.dev/api/health`
+- [x] Health endpoint responds: `curl https://<your-backend-app>.fly.dev/api/health`
 - [x] Analyze endpoint works: Test via frontend
 - [x] Create deployment: Test via frontend
 - [x] List deployments: Test via frontend
-- [x] MCP endpoint exists: `curl https://catwalk-live-backend-dev.fly.dev/api/mcp/{id}`
+- [x] MCP endpoint exists: `curl https://<your-backend-app>.fly.dev/api/mcp/{id}`
 - [x] Database migrations applied
 - [x] Credentials stored encrypted
 
@@ -331,12 +331,12 @@ Operational checks (from within the backend machine):
 
 ## 🔑 Deployment Secrets (Fly.io)
 
-**Set on catwalk-live-backend-dev**:
+**Set on <your-backend-app>**:
 ```bash
 DATABASE_URL       # Auto-set by fly postgres attach
 ENCRYPTION_KEY     # Fernet key for credential encryption
 OPENROUTER_API_KEY # Claude API for repo analysis
-PUBLIC_URL         # https://catwalk-live-backend-dev.fly.dev
+PUBLIC_URL         # https://<your-backend-app>.fly.dev
 ```
 
 **Generate Encryption Key**:
@@ -350,10 +350,10 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 
 | Service | URL | Status |
 |---------|-----|--------|
-| Backend API | https://catwalk-live-backend-dev.fly.dev | ✅ Live |
-| Backend Health | https://catwalk-live-backend-dev.fly.dev/api/health | ✅ Passing |
+| Backend API | https://<your-backend-app>.fly.dev | ✅ Live |
+| Backend Health | https://<your-backend-app>.fly.dev/api/health | ✅ Passing |
 | Frontend (Local) | http://localhost:3000 | ✅ Working |
-| PostgreSQL | catwalk-live-db-dev.internal (Fly private) | ✅ Running |
+| PostgreSQL | <your-database-app>.internal (Fly private) | ✅ Running |
 
 ---
 
@@ -362,13 +362,13 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 ### Test Production Backend
 ```bash
 # Health check
-curl https://catwalk-live-backend-dev.fly.dev/api/health
+curl https://<your-backend-app>.fly.dev/api/health
 
 # View logs
-fly logs --app catwalk-live-backend-dev
+fly logs --app <your-backend-app>
 
 # Check status
-fly status --app catwalk-live-backend-dev
+fly status --app <your-backend-app>
 ```
 
 ### Run Frontend Locally
@@ -383,7 +383,7 @@ bun run dev
 ### Deploy Backend Changes
 ```bash
 cd backend
-fly deploy --app catwalk-live-backend-dev
+fly deploy --app <your-backend-app>
 ```
 
 ---

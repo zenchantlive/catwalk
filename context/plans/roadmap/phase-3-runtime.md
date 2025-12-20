@@ -131,7 +131,7 @@ This phase adds unified runtime support through:
 - [ ] **Test Fly machine creation**
   ```bash
   # Check that MCP_RUNTIME is set in machine env
-  fly machine list --app catwalk-live-mcp-servers
+  fly machine list --app <your-mcp-app>
   fly machine show {machine_id}
   # Verify env vars include MCP_RUNTIME
   ```
@@ -178,14 +178,14 @@ This phase adds unified runtime support through:
 - [ ] **Build and push new Docker image**
   ```bash
   cd deploy
-  docker build -t registry.fly.io/catwalk-live-mcp-servers:unified .
-  docker push registry.fly.io/catwalk-live-mcp-servers:unified
+  docker build -t registry.fly.io/<your-mcp-app>:unified .
+  docker push registry.fly.io/<your-mcp-app>:unified
   ```
 
 - [ ] **Update Fly.io secret**
   ```bash
-  fly secrets set FLY_MCP_IMAGE=registry.fly.io/catwalk-live-mcp-servers:unified \
-    --app catwalk-live-backend-dev
+  fly secrets set FLY_MCP_IMAGE=registry.fly.io/<your-mcp-app>:unified \
+    --app <your-backend-app>
   ```
 
 - [ ] **Verify existing deployments still work**
@@ -442,19 +442,19 @@ esac
 
 4. **Push image to Fly.io registry**
    ```bash
-   docker tag catwalk-mcp-test registry.fly.io/catwalk-live-mcp-servers:unified
-   docker push registry.fly.io/catwalk-live-mcp-servers:unified
+   docker tag catwalk-mcp-test registry.fly.io/<your-mcp-app>:unified
+   docker push registry.fly.io/<your-mcp-app>:unified
    ```
 
 5. **Update backend secret**
    ```bash
-   fly secrets set FLY_MCP_IMAGE=registry.fly.io/catwalk-live-mcp-servers:unified --app catwalk-live-backend-dev
+   fly secrets set FLY_MCP_IMAGE=registry.fly.io/<your-mcp-app>:unified --app <your-backend-app>
    ```
 
 6. **Deploy backend**
    ```bash
    cd backend
-   fly deploy --app catwalk-live-backend-dev
+   fly deploy --app <your-backend-app>
    ```
 
 7. **Test end-to-end**
