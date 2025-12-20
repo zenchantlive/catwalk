@@ -9,6 +9,7 @@
 [![Built with AI](https://img.shields.io/badge/Built%20with-AI%20Orchestration-purple)]()
 
 ---
+<img width="1268" height="893" alt="image" src="https://github.com/user-attachments/assets/c4330396-fb73-4a14-9076-ec01c9eb770f" />
 
 ## What It Does
 
@@ -312,5 +313,6 @@ Inspired by:
 **⭐ If this project helped you understand AI orchestration, please star the repo!**
 
 **🚀 Ready to build your own AI-orchestrated project?** Read [AI_ORCHESTRATION.md](AI_ORCHESTRATION.md) and start experimenting!
+
 
 
