@@ -95,6 +95,13 @@ function ConfigureContent() {
         );
     }
 
+    if (isLoading) {
+      return (
+        <div className="flex justify-center py-20">
+          <Loader2 className="animate-spin" size={24} />
+        </div>
+      );
+    }
     if (error || !schema) {
         if (isLocalOnlyRegistryServer) {
             return (
