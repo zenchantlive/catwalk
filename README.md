@@ -245,7 +245,7 @@ This demonstrates:
 - AI-Assisted Development positions
 - Developer Experience (AI tools)
 
-**Let's talk!** Email: zenchant@users.noreply.github.com
+**Let's talk!** Email: jordanlive121@gmail.com
 
 ---
 
@@ -312,3 +312,4 @@ Inspired by:
 **⭐ If this project helped you understand AI orchestration, please star the repo!**
 
 **🚀 Ready to build your own AI-orchestrated project?** Read [AI_ORCHESTRATION.md](AI_ORCHESTRATION.md) and start experimenting!
+
