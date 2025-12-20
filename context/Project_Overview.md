@@ -1,4 +1,4 @@
-# MCP Remote Platform - Project Overview
+# Catwalk Live - Project Overview
 
 ## Executive Summary
 
@@ -36,13 +36,13 @@ Claude (on your laptop) ←→ MCP Server (also on your laptop)
 
 ## Our Solution
 
-We transform stdio-based MCP servers into **remote SSE (Server-Sent Events) endpoints**:
+We transform stdio-based MCP servers into **remote Streamable HTTP endpoints** (MCP spec 2025-06-18):
 ```
-Claude (anywhere: mobile/web/desktop)
-    ↓ HTTPS/SSE connection
-Your Platform (cloud infrastructure)
-    ↓ stdio communication
-MCP Server (isolated container with user credentials)
+Claude (anywhere: desktop/web/mobile)
+    ↓ Streamable HTTP (GET/POST)
+Catwalk backend (FastAPI on Fly.io)
+    ↓ Fly private network (6PN, internal DNS)
+MCP machine (mcp-proxy → stdio MCP server)
 ```
 
 **What this enables:**
@@ -105,11 +105,11 @@ Backend process (transparent to user):
 2. Stores encrypted data in PostgreSQL
 3. Calls Fly.io Machines API
 4. Creates isolated container with:
-   - mcp-proxy (stdio → SSE bridge)
-   - User's chosen MCP server
+   - mcp-proxy (stdio → Streamable HTTP bridge at `/mcp`)
+   - User's chosen MCP server package (`MCP_PACKAGE`)
    - Injected credentials as environment variables
-5. Waits for health check to pass
-6. Generates public SSE URL
+5. Waits for the machine to start and respond on `/status`
+6. Returns a backend `connection_url` for Claude to use
 
 **[ASSUMPTION: Deployment takes 30-90 seconds. User sees real-time status: "Creating container..." → "Installing packages..." → "Starting server..." → "Testing connection..." → "Ready!"]**
 
@@ -118,7 +118,7 @@ Platform displays:
 ```
 ✅ Your TickTick MCP server is ready!
 
-URL: https://a3f9x2k1.fly.dev/sse
+URL: https://catwalk-live-backend-dev.fly.dev/api/mcp/<deployment_id>
 
 [Copy URL] button
 
@@ -137,8 +137,8 @@ User adds URL to Claude, then:
 ```
 User: "What are my TickTick tasks for today?"
 
-Claude: [connects to https://a3f9x2k1.fly.dev/sse]
-        [sse → mcp-proxy → ticktick-mcp-server → TickTick API]
+Claude: [connects to https://catwalk-live-backend-dev.fly.dev/api/mcp/<deployment_id>]
+        [Streamable HTTP → backend → mcp-proxy (/mcp) → MCP server → TickTick API]
         [receives tasks]
         
         "You have 3 tasks today:
@@ -195,7 +195,7 @@ User returns to dashboard to see:
 - ✅ Accepts any GitHub URL to an MCP server
 - ✅ Automatically extracts configuration requirements
 - ✅ Deploys to cloud within 60 seconds
-- ✅ Returns working SSE URL compatible with Claude
+- ✅ Returns working Streamable HTTP URL compatible with Claude
 - ✅ URL works from Claude desktop, mobile, and web
 - ✅ Credentials stored encrypted at rest
 - ✅ Can stop/restart/delete deployments
@@ -214,6 +214,13 @@ User returns to dashboard to see:
 - ✅ Works on first try (no debugging needed)
 - ✅ Error messages are actionable
 - ✅ Instructions are copy-paste simple
+
+## “Any GitHub link” assumptions (MVP)
+
+For a different MCP server repo URL to deploy cleanly, the analysis + runtime pipeline assumes:
+- The repo corresponds to an MCP server that can be run as an npm package via `npx -y <package>`
+- Analysis extracts a non-empty package name into `schedule_config.mcp_config.package`
+- Required credentials are represented as env vars and can be injected into the machine environment
 
 ### Economic Requirements (MVP - single user):
 - ✅ Claude API costs: <$0.02 per analysis
@@ -247,7 +254,7 @@ User returns to dashboard to see:
 - Cost analytics dashboard
 
 **Phase 11+ - Advanced Features (Future):**
-- Custom domains for SSE URLs
+- Custom domains for deployment URLs
 - MCP server marketplace
 - One-click deploy from marketplace
 - Monitoring and alerting
@@ -264,16 +271,15 @@ User returns to dashboard to see:
 - A replacement for claude.ai (we complement it)
 - Local MCP management (focused on cloud)
 
-### The stdio ↔ SSE Bridge:
+### The stdio ↔ HTTP Bridge:
 
 **We are NOT building mcp-proxy** - this exists as open source.
 
 What `mcp-proxy` does (we just use it):
-- Accepts SSE connections over HTTP
+- Exposes MCP over Streamable HTTP at `/mcp` (and legacy SSE at `/sse`)
 - Spawns MCP server as subprocess
-- Translates SSE messages → stdio
-- Translates stdio → SSE messages
-- Handles session management
+- Translates Streamable HTTP ↔ stdio (and SSE ↔ stdio for legacy clients)
+- Handles session management (via MCP session headers)
 
 What we DO build:
 - Infrastructure to run mcp-proxy + MCP servers in cloud
@@ -298,11 +304,11 @@ What we DO build:
 **Layer 3: Orchestration (Container Manager)**
 - Input: Config + Encrypted credentials
 - Process: Create Fly.io machine, inject env vars, start server
-- Output: Public SSE URL
+- Output: Backend `connection_url` (Streamable HTTP)
 
 ### The Core Loop:
 ```
-Repo URL → LLM Analysis → User Credentials → Deploy Container → SSE URL → Claude
+Repo URL → LLM Analysis → User Credentials → Deploy Machine → connection_url → Claude
 ```
 
 ### What Actually Runs in the Cloud:
@@ -321,10 +327,13 @@ Repo URL → LLM Analysis → User Credentials → Deploy Container → SSE URL 
 │  │                                │ │
 │  └────────────────────────────────┘ │
 │                                      │
-│  Exposed: Port 8080 → SSE endpoint  │
+│  Exposed: Port 8080 → mcp-proxy (/mcp, /status) │
 └─────────────────────────────────────┘
          ↓
-   Public URL: https://[machine-id].fly.dev/sse
+   Internal URL (backend only): http://{machine_id}.vm.{mcp_app}.internal:8080/mcp
+
+Claude-visible URL (stable):
+  https://{backend}/api/mcp/{deployment_id}
 ```
 
 ## Why This Matters

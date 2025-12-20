@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+:root {
+  /* Core Palette - Aurora Design System */
+  --pk-bg-deep: #0B0C15;
+  --pk-text-primary: #EDEDEF;
+  --pk-text-secondary: #9496A1;
+  --pk-text-accent: #D4D4D8;
+
+  --pk-accent-primary-from: #A78BFA;
+  /* Soft Lavender */
+  --pk-accent-primary-to: #2DD4BF;
+  /* Teal */
+
+  --pk-status-green: #4ADE80;
+  --pk-status-red: #FB7185;
+}
+
+@theme inline {
+  --color-background: var(--pk-bg-deep);
+  --color-foreground: var(--pk-text-primary);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Extend theme with Aurora colors */
+  --color-aurora-bg: var(--pk-bg-deep);
+  --color-aurora-text: var(--pk-text-primary);
+  --color-aurora-text-sec: var(--pk-text-secondary);
+  --color-aurora-green: var(--pk-status-green);
+  --color-aurora-red: var(--pk-status-red);
+}
+
+body {
+  background: var(--pk-bg-deep);
+  color: var(--pk-text-primary);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+  /* Mobile First: Base font size is 1rem (16px equivalent), preventing zoom issues on iOS inputs */
+  font-size: 1rem;
+}
+
+/* Utility Classes for Aurora Components */
+@layer utilities {
+  .card-glass {
+    /* p-6 corresponds to 1.5rem. rounded-2xl is 1rem. All relative. */
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-lg;
+  }
+
+  .btn-aurora {
+    /* px-6 (1.5rem) py-3 (0.75rem) for touch targets. rounded-lg (0.5rem). */
+    @apply bg-gradient-to-r from-[var(--pk-accent-primary-from)] to-[var(--pk-accent-primary-to)] text-white font-medium px-6 py-3 rounded-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] touch-manipulation;
+    /* Optimizes for mobile touch responsiveness */
+
+    /* Standard CSS for complex shadows to avoid Tailwind parser issues with commas/spaces in @apply */
+    box-shadow: 0 0 1.25rem -0.3125rem rgba(167, 139, 250, 0.5);
+  }
+
+  .btn-aurora:hover {
+    box-shadow: 0 0 1.875rem -0.3125rem rgba(167, 139, 250, 0.6);
+  }
+
+  .input-aurora {
+    @apply bg-[#1A1B26] text-[#EDEDEF] placeholder-[#9496A1] rounded-lg px-4 py-3 focus:outline-none focus:ring-1 focus:ring-purple-400/50 transition-all w-full;
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-[var(--pk-accent-primary-from)] to-[var(--pk-accent-primary-to)];
+  }
+}

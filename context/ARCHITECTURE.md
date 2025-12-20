@@ -1,4 +1,4 @@
-# MCP Remote Platform - Architecture
+# Catwalk Live - Architecture
 
 ## System Overview
 
@@ -46,7 +46,7 @@ User enters GitHub URL
   ↓
 Frontend validates URL format
   ↓
-POST /api/analyze {github_url}
+POST /api/analyze {repo_url}
   ↓
 Backend checks cache (AnalysisCache table)
   ↓ (cache miss)
@@ -57,7 +57,7 @@ Claude API called with:
   ↓
 Claude fetches repo via web search
 Claude parses README, package.json
-Claude extracts: package_name, env_vars, run_command
+Claude extracts: package, env_vars, tools, resources, prompts
   ↓
 Backend validates response schema
 Backend caches result (24h TTL)
@@ -75,7 +75,7 @@ User enters credentials in dynamic form
   ↓
 Frontend validates (required fields, types)
   ↓
-POST /api/deployments {github_url, credentials}
+POST /api/deployments {name, schedule_config, credentials}
   ↓
 Backend retrieves analysis from cache
 Backend validates credentials against env_vars schema
@@ -92,24 +92,23 @@ Call Fly.io Machines API:
   POST /v1/apps/{app}/machines
   {
     "config": {
-      "image": "registry.fly.io/mcp-base:latest",
+      "image": "{FLY_MCP_IMAGE}",
       "env": {
-        "MCP_PACKAGE": "npx -y @user/mcp-server",
+        "MCP_PACKAGE": "@user/mcp-server",
         ...decrypted_credentials
       },
-      "services": [{"ports": [{"port": 8080}]}]
+      "guest": {"cpu_kind": "shared", "cpus": 1, "memory_mb": 256},
+      "restart": {"policy": "always"}
     }
   }
   ↓
 Fly creates Firecracker VM
 Fly pulls Docker image
-Container starts: mcp-proxy --port 8080 -- $MCP_PACKAGE
+Container starts: mcp-proxy (Streamable HTTP) exposing:
+  - GET /status (health)
+  - GET/POST /mcp (Streamable HTTP)
   ↓
-Backend polls machine status (max 60 seconds)
-Machine reaches 'started' state
-  ↓
-Generate SSE URL: https://{machine_id}.fly.dev/sse
-Update Deployment record (status: 'running', sse_url)
+Backend stores machine_id and marks deployment 'running'
   ↓
 Return deployment info to frontend
   ↓
@@ -122,25 +121,30 @@ User copies URL to Claude settings
 ```
 User asks Claude a question requiring MCP tool
   ↓
-Claude connects to https://{machine_id}.fly.dev/sse
+Claude connects to backend Streamable HTTP endpoint:
+  https://{backend}/api/mcp/{deployment_id}
   ↓
-Fly.io routes to container
+Backend forwards Streamable HTTP to the machine over Fly private networking:
+  http://{machine_id}.vm.{mcp_app}.internal:8080/mcp
   ↓
-mcp-proxy receives SSE connection
-mcp-proxy spawns: npx -y @user/mcp-server
+mcp-proxy receives Streamable HTTP request and spawns:
+  npx -y $MCP_PACKAGE
   ↓
-mcp-proxy translates SSE → stdio
+mcp-proxy translates Streamable HTTP → stdio
 MCP server receives request via stdin
   ↓
 MCP server uses injected env vars (user credentials)
 MCP server calls external API (e.g., TickTick)
   ↓
 MCP server returns result via stdout
-mcp-proxy translates stdio → SSE
+mcp-proxy translates stdio → Streamable HTTP response (JSON or SSE stream)
   ↓
-Claude receives response
+Backend returns response to Claude
 Claude synthesizes answer for user
 ```
+
+**Important header note**:
+- When calling the machine `/mcp` endpoint directly (or proxying it), include `Accept: application/json`.
 
 ## Core Components
 
@@ -225,12 +229,13 @@ client.messages.create(
 
 **Analysis Prompt Structure:**
 ```
-Analyze this MCP server repository: {github_url}
+Analyze this MCP server repository: {repo_url}
 
 Extract deployment information and return ONLY valid JSON:
 {
-  "package_name": "exact npm package or install command",
-  "display_name": "human-friendly name (e.g., 'TickTick MCP')",
+  "package": "exact npm package name (e.g., '@user/mcp-server')",
+  "name": "human-friendly name (e.g., 'TickTick MCP')",
+  "description": "short description",
   "env_vars": [
     {
       "name": "UPPERCASE_ENV_VAR_NAME",
@@ -240,7 +245,9 @@ Extract deployment information and return ONLY valid JSON:
       "default": "optional default value or null"
     }
   ],
-  "run_command": "exact command to start server (e.g., npx -y @pkg/name)",
+  "tools": [],
+  "resources": [],
+  "prompts": [],
   "notes": "any special requirements, setup steps, or warnings"
 }
 
@@ -250,12 +257,12 @@ Be thorough in identifying ALL required environment variables.
 
 **Validation:**
 - Schema enforcement via Pydantic
-- Security checks: no shell injection chars in run_command
-- Completeness: at least package_name and run_command required
+- Security checks: only allow safe `package` values (no shell metacharacters)
+- Completeness: `package` + `env_vars` required
 
 **Caching:**
-- Key: SHA256(github_url)
-- TTL: 24 hours
+- Key: normalized `repo_url`
+- TTL: 1 week
 - Invalidation: Manual via query param `?refresh=true`
 
 **[ASSUMPTION: If analysis fails 3 times, return partial result with warning. User can manually edit before deploying.]**
@@ -271,9 +278,9 @@ Be thorough in identifying ALL required environment variables.
 ```python
 from cryptography.fernet import Fernet
 
-# Master key from environment (32 bytes, base64-encoded)
-MASTER_KEY = os.getenv('MASTER_ENCRYPTION_KEY')
-cipher = Fernet(MASTER_KEY)
+# Fernet key from environment (base64-encoded)
+ENCRYPTION_KEY = os.getenv('ENCRYPTION_KEY')
+cipher = Fernet(ENCRYPTION_KEY)
 
 def encrypt_credentials(creds: dict) -> bytes:
     json_str = json.dumps(creds)
@@ -307,9 +314,9 @@ def decrypt_credentials(encrypted: bytes) -> dict:
 {
   "name": "mcp-{deployment_id_short}",
   "config": {
-    "image": "registry.fly.io/mcp-base:latest",
+    "image": "{FLY_MCP_IMAGE}",
     "env": {
-      "MCP_PACKAGE": "npx -y @user/mcp-server",
+      "MCP_PACKAGE": "@user/mcp-server",
       "USER_CREDENTIAL_1": "decrypted_value",
       "USER_CREDENTIAL_2": "decrypted_value"
     },
@@ -318,14 +325,6 @@ def decrypt_credentials(encrypted: bytes) -> dict:
       "cpus": 1,
       "memory_mb": 256
     },
-    "services": [{
-      "protocol": "tcp",
-      "internal_port": 8080,
-      "ports": [{
-        "port": 443,
-        "handlers": ["tls", "http"]
-      }]
-    }],
     "restart": {
       "policy": "always"
     }
@@ -335,15 +334,12 @@ def decrypt_credentials(encrypted: bytes) -> dict:
 
 **Health Checking:**
 ```
-Every 30 seconds (for running machines):
-  GET https://{machine_id}.fly.dev/health
-  
-  Expected: 200 OK
-  Timeout: 5 seconds
-  
-  If 3 consecutive failures:
-    Mark deployment status as 'unhealthy'
-    Alert user (future: email/webhook)
+Backend-to-machine checks (private network):
+  GET http://{machine_id}.vm.{mcp_app}.internal:8080/status
+
+Expected: 200 OK (JSON)
+If connect fails or non-200:
+  mark deployment status as 'unhealthy' (future enhancement)
 ```
 
 **[ASSUMPTION: Machines run always-on for MVP. No scale-to-zero until Phase 9 (Valkey integration).]**
@@ -354,19 +350,13 @@ Every 30 seconds (for running machines):
 ```sql
 CREATE TABLE deployments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    github_url TEXT NOT NULL,
-    package_name TEXT NOT NULL,
-    display_name TEXT NOT NULL,
     machine_id TEXT UNIQUE,
-    sse_url TEXT,
     status TEXT NOT NULL CHECK (status IN (
-        'analyzing', 'deploying', 'running', 
-        'stopped', 'unhealthy', 'failed'
+        'pending', 'active', 'running',
+        'stopped', 'failed'
     )),
-    fly_region TEXT DEFAULT 'sjc',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_health_check TIMESTAMPTZ,
     error_message TEXT,
     INDEX idx_status (status),
     INDEX idx_created_at (created_at DESC)
@@ -387,13 +377,11 @@ CREATE TABLE credentials (
 ### AnalysisCache Table
 ```sql
 CREATE TABLE analysis_cache (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    github_url TEXT NOT NULL UNIQUE,
-    config_json JSONB NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
+    id SERIAL PRIMARY KEY,
+    repo_url TEXT NOT NULL UNIQUE,
+    data JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    INDEX idx_github_url (github_url),
-    INDEX idx_expires_at (expires_at)
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ```
 
