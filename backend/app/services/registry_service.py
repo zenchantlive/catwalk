@@ -384,7 +384,13 @@ class RegistryService:
                 resp.raise_for_status()
                 xml_text = resp.text
 
-            root = ElementTree.fromstring(xml_text)
+            try:
+                root = ElementTree.fromstring(xml_text)
+            except ElementTree.ParseError as e:
+                logger.error(f"Failed to parse sitemap XML: {e}")
+                self._sitemap_ids = []
+                self._sitemap_last_updated = datetime.now()
+                return
             ids: List[str] = []
             for loc_el in root.iter(_SITEMAP_LOC_TAG):
                 if loc_el.text is None:
