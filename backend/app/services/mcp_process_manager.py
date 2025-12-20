@@ -10,6 +10,7 @@ This is for local testing. In production (Fly.io), each deployment will be a sep
 import asyncio
 import json
 import logging
+import os
 import uuid
 import sys
 import subprocess
@@ -64,8 +65,8 @@ class ServerProcess:
                 # NPM package (e.g., @alexarevalo.ai/mcp-server-ticktick)
                 cmd = ["npx", "-y", self.package]
             else:
-                # Python package (simple heuristic)
-                cmd = ["python", "-m", self.package]
+                # Python package (simple heuristic) - use sys.executable to ensure correct Python interpreter
+                cmd = [sys.executable, "-m", self.package]
 
             logger.info(f"Starting MCP server for deployment {self.deployment_id}")
             logger.info(f"  Package: {self.package}")
@@ -81,7 +82,7 @@ class ServerProcess:
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
-                    env={**self.env_vars},
+                    env={**os.environ, **self.env_vars},  # Inherit parent env plus credentials
                     text=False  # Binary mode for JSON-RPC
                 )
                 logger.info(f"MCP server started for deployment {self.deployment_id} (PID: {self.process.pid})")
