@@ -18,6 +18,7 @@ You are a Senior Full-Stack Engineer and **Pragmatic Quality Specialist** for **
 - ✅ GitHub repo analysis via Claude extracts MCP config
 - ✅ Deployments create Fly MCP machines (when Fly secrets are set)
 - ✅ Streamable HTTP works end-to-end (backend `/api/mcp/{deployment_id}` → machine `/mcp`)
+- ✅ RegistryService hardened (concurrency safe, timeouts)
 
 **What's NOT Working Yet**:
 - ❌ Health monitoring loop + “unhealthy” state management (beyond Fly restart policy)

@@ -1,6 +1,6 @@
 # Current Development Status
 
-**Last Updated**: 2025-12-15
+**Last Updated**: 2025-12-17
 **Current Phase**: Phase 6 - MCP Server Container Deployment (WORKING ✅)
 
 ---
@@ -47,12 +47,20 @@
 - ✅ Frontend configured to use production backend
 - ✅ Docker image built and deployed successfully
 - ✅ Always-on backend with `min_machines_running = 1`
+- ✅ **RegistryService Refactored**: Concurrency safety, timeouts, and robustness improvements
 
 ### Phase 6: MCP Server Container Deployment (WORKING ✅)
 - ✅ Backend creates Fly Machines for deployments (when `FLY_API_TOKEN` is set)
 - ✅ Shared MCP machine image runs `mcp-proxy` exposing Streamable HTTP at `GET/POST /mcp`
 - ✅ Backend forwards Streamable HTTP to the MCP machine over Fly private networking
 - ✅ End-to-end connectivity verified from backend → machine on `:8080`
+
+### Phase 1: Validation & Error Handling (NEW - COMPLETED! ✅)
+- ✅ Package validation (npm and PyPI registries)
+- ✅ Credential validation (required fields checked)
+- ✅ Structured error responses with actionable help messages
+- ✅ Frontend error display (user-visible error messages)
+- ✅ Runtime detection (npm vs Python automatic)
 
 ---
 
@@ -89,12 +97,12 @@
 
 ## 🚧 What's NOT Working Yet
 
-### Hardening + UX (Next)
+### Hardening + UX (Next - Phase 2)
 
-What remains (now that machines deploy and tool calls connect):
-- Health monitoring loop (beyond Fly restart policy) and better “unhealthy” status reporting
+What remains (now that validation and deployment work):
+- ✅ ~~Package and credential validation~~ (COMPLETED in Phase 1!)
+- Health monitoring loop (beyond Fly restart policy) and better "unhealthy" status reporting
 - Clear progress/status surfaced to the frontend during machine start and package install
-- Stronger validation that analysis produced a runnable `mcp_config.package` for arbitrary repos
 
 ---
 
@@ -382,13 +390,19 @@ fly deploy --app catwalk-live-backend-dev
 
 ## 🎓 For Future Claude Sessions
 
-**You are currently at**: Phase 6 Working (Streamable HTTP end-to-end)
+**You are currently at**: Phase 1 Complete! (Validation & Error Handling) + Phase 6 Working (Streamable HTTP end-to-end)
 
-**What works**: Full backend API on Fly.io, frontend locally, deployments stored in database
+**What works**:
+- Full backend API on Fly.io
+- Frontend locally with error display
+- Package validation (npm/PyPI)
+- Credential validation
+- Deployments with structured error messages
+- End-to-end MCP tool calls
 
-**What doesn't work**: Health monitoring loop + richer deployment progress (non-blocking)
+**What doesn't work**: Health monitoring loop + richer deployment progress (Phase 2)
 
-**Next task**: Harden analysis → `mcp_config.package` mapping + improve machine health/status reporting
+**Next task**: Phase 2 - Health Monitoring & Status tracking (see `context/plans/roadmap/phase-2-monitoring.md`)
 
 **Reference code**: `remote-mcp-pilot/deploy/` has working Fly.io deployment
 
@@ -396,4 +410,5 @@ fly deploy --app catwalk-live-backend-dev
 1. This file (CURRENT_STATUS.md)
 2. `CLAUDE.md` for deployment pitfalls
 3. `context/ARCHITECTURE.md` for system design
-4. `app/api/deployments.py` to see where Fly deployment should hook in
+4. `app/api/deployments.py` to see validation integration
+5. `app/services/package_validator.py` and `credential_validator.py` for validation logic
