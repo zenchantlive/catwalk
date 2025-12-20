@@ -276,6 +276,7 @@ async def get_registry_form_schema(
         # Build mcp_config (Glama can provide richer metadata than the legacy registry)
         mcp_config = {
             "package": form_data["package"],
+            "env_vars": form_data["env_vars"],
             "tools": raw_server.get("tools", []),
             "resources": raw_server.get("resources", []),
             "prompts": raw_server.get("prompts", []),
