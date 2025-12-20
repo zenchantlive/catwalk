@@ -1,8 +1,13 @@
+import json
+import logging
 import os
+import re
 from typing import Optional, Dict, Any
 from openai import AsyncOpenAI
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Service responsible for analyzing GitHub repositories using Claude via OpenRouter
 class AnalysisService:
@@ -12,7 +17,7 @@ class AnalysisService:
         api_key: Optional[str] = settings.OPENROUTER_API_KEY
         if not api_key:
             # Handle missing API key case (could raise error or log warning)
-            print("Warning: OPENROUTER_API_KEY not found in environment variables.")
+            logger.warning("OPENROUTER_API_KEY not found in environment variables.")
         
         # Initialize the AsyncOpenAI client pointing to OpenRouter
         self.client: AsyncOpenAI = AsyncOpenAI(
@@ -22,7 +27,7 @@ class AnalysisService:
         
         # Define the model to use (Claude Haiku 4.5)
         self.model: str = "anthropic/claude-haiku-4.5"
-### USER RULE : NEVER EVER CHANGE THE MODEL FROM CLAUDE HAIKU 4.5 UNLESS SPECIFICALLY INSTRUCTED TO DO SO
+    ### USER RULE : NEVER EVER CHANGE THE MODEL FROM CLAUDE HAIKU 4.5 UNLESS SPECIFICALLY INSTRUCTED TO DO SO
     # Analyze a GitHub repository to extract MCP configuration
     async def analyze_repo(self, repo_url: str) -> Dict[str, Any]:
         """
@@ -64,12 +69,23 @@ class AnalysisService:
             # Extract the content from the response
             content = response.choices[0].message.content
             
-            # TODO: Add robust JSON parsing/cleaning here if the model adds markdown ticks
-            # For now, return the raw content or parsed dict if possible
-            # We assume the model follows the instruction to output JSON.
-            return {"raw_analysis": content}
+            # Clean and parse the JSON content
+            cleaned_content = content.strip()
+            # Remove markdown code blocks if present
+            if "```" in cleaned_content:
+                cleaned_content = re.sub(r"^```json\s*", "", cleaned_content, flags=re.MULTILINE)
+                cleaned_content = re.sub(r"^```\s*", "", cleaned_content, flags=re.MULTILINE)
+                cleaned_content = re.sub(r"```$", "", cleaned_content, flags=re.MULTILINE).strip()
+            
+            try:
+                parsed_data = json.loads(cleaned_content)
+                return parsed_data
+            except json.JSONDecodeError:
+                # Fallback or error if parsing fails
+                logger.error("Failed to parse JSON analysis: %s", cleaned_content)
+                return {"error": "Failed to parse analysis results", "raw": content}
             
         except Exception as e:
             # Log the error (in a real app) and re-raise or return error status
-            print(f"Error analyzing repo {repo_url}: {str(e)}")
+            logger.error(f"Error analyzing repo {repo_url}: {str(e)}")
             return {"error": str(e), "status": "failed"}
