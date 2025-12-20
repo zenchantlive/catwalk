@@ -67,8 +67,9 @@ class CredentialValidator:
 
             # Check if credential is provided
             # Try both with and without 'env_' prefix to handle different formats
-            credential_key_with_prefix = f"env_{var_name}"
-            credential_key_without_prefix = var_name
+            sanitized_var_name = re.sub(r"[^A-Za-z0-9_]", "_", var_name)
+            credential_key_with_prefix = f"env_{sanitized_var_name}"
+            credential_key_without_prefix = sanitized_var_name
 
             credential_value = (
                 provided_credentials.get(credential_key_with_prefix) or
