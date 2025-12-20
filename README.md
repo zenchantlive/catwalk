@@ -1,6 +1,6 @@
 # Catwalk Live
 
-**A Vercel-like platform for deploying MCP servers to Fly.io, built entirely through AI orchestration.**
+**A Vercel-like platform for deploying Remote MCP servers to Fly.io, built entirely through AI orchestration.**
 
 > 🤖 **This project was built using a multi-stage AI development pipeline** (Claude Code, Cursor, Gemini Code Assist) **without manually writing code.** It demonstrates strategic prompt engineering, multi-agent coordination, and quality control of AI-generated systems.
 
@@ -312,4 +312,5 @@ Inspired by:
 **⭐ If this project helped you understand AI orchestration, please star the repo!**
 
 **🚀 Ready to build your own AI-orchestrated project?** Read [AI_ORCHESTRATION.md](AI_ORCHESTRATION.md) and start experimenting!
+
 
