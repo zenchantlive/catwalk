@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from typing import Optional
 
 class Settings(BaseSettings):
@@ -53,26 +53,22 @@ class Settings(BaseSettings):
     # Example: registry.fly.io/catwalk-live-mcp-host:latest
     FLY_MCP_IMAGE: Optional[str] = None
 
-    @field_validator("FLY_MCP_IMAGE")
-    @classmethod
-    def validate_mcp_image(cls, v: Optional[str]) -> Optional[str]:
+    @model_validator(mode='after')
+    def validate_fly_config(self) -> 'Settings':
         """
-        Validate that FLY_MCP_IMAGE is set when FLY_API_TOKEN is present.
-
-        This prevents the system from attempting to create machines with invalid
-        image identifiers. If you're deploying MCP servers, you MUST set this.
-
-        Raises:
-            ValueError: If FLY_MCP_IMAGE is not set when needed.
+        Validate that FLY_MCP_IMAGE is set if FLY_API_TOKEN is present.
         """
-        # During initialization, we can't check FLY_API_TOKEN yet (not available in validator context)
-        # So we'll add a runtime check in the service instead
-        # For now, just ensure if it IS set, it looks valid
-        if v and not ("/" in v or ":" in v):
+        if self.FLY_API_TOKEN and not self.FLY_MCP_IMAGE:
             raise ValueError(
-                f"FLY_MCP_IMAGE must be a valid Docker image reference (e.g., 'registry.fly.io/app:tag'), got: {v}"
+                "FLY_MCP_IMAGE must be set when FLY_API_TOKEN is provided."
             )
-        return v
+        
+        # Also validate image format here
+        if self.FLY_MCP_IMAGE and not ("/" in self.FLY_MCP_IMAGE or ":" in self.FLY_MCP_IMAGE):
+            raise ValueError(
+                f"FLY_MCP_IMAGE must be a valid Docker image reference (e.g., 'registry.fly.io/app:tag'), got: {self.FLY_MCP_IMAGE}"
+            )
+        return self
     
     # Pydantic Configuration
     model_config = SettingsConfigDict(

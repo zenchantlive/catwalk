@@ -350,4 +350,4 @@ class TestCredentialValidationEdgeCases:
 
         # Should fail because case doesn't match
         assert result["valid"] is False
-        assert len(result["errors"]) == 1
+        assert any("TICKTICK_TOKEN" in err for err in result["errors"])

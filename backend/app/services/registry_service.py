@@ -523,18 +523,28 @@ class RegistryService:
         for server in servers:
             name_groups.setdefault((server.namespace, server.name), []).append(server)
 
-        for (_, base_name), group in name_groups.items():
-            if len(group) <= 1:
-                continue
-            for server in group:
-                slug = (
-                    server.id.split("/", 1)[1]
-                    if "/" in server.id
-                    else server.id
-                )
-                server.name = f"{base_name} ({slug})"
+        result_servers: List[RegistryServer] = []
+        processed_ids: set[str] = set()
 
-        return servers
+        for server in servers:
+            if server.id in processed_ids:
+                continue
+
+            group = name_groups.get((server.namespace, server.name), [])
+            if len(group) > 1:
+                # If there are duplicates, disambiguate all of them
+                for s in group:
+                    slug = s.id.split("/", 1)[1] if "/" in s.id else s.id
+                    # Create a new object instead of modifying in-place
+                    new_server = s.model_copy()
+                    new_server.name = f"{s.name} ({slug})"
+                    result_servers.append(new_server)
+                    processed_ids.add(s.id)
+            else:
+                result_servers.append(server)
+                processed_ids.add(server.id)
+
+        return result_servers
 
     def get_raw_server(self, server_id: str) -> Optional[Dict[str, Any]]:
         """Return the raw Glama server payload (used for schema/tool metadata)."""

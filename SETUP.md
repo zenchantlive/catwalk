@@ -44,7 +44,7 @@ cp .env.example .env
 # - ENCRYPTION_KEY (generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
 # - DATABASE_URL (optional, defaults to SQLite)
 
-# Run database migrations
+# Run database migrations (from project root)
 alembic upgrade head
 
 # Start backend server
@@ -90,7 +90,7 @@ No setup needed! The backend defaults to SQLite for local development.
    ```
    DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/mcp_remote
    ```
-4. **Run migrations**:
+4. **Run migrations (from project root)**:
    ```bash
    alembic upgrade head
    ```
@@ -189,7 +189,7 @@ Reset database:
 # Delete existing migrations
 rm -rf alembic/versions/*.py
 
-# Recreate from scratch
+# Recreate from scratch (from project root)
 alembic revision --autogenerate -m "init"
 alembic upgrade head
 ```

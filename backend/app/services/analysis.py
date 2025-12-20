@@ -71,11 +71,16 @@ class AnalysisService:
             
             # Clean and parse the JSON content
             cleaned_content = content.strip()
-            # Remove markdown code blocks if present
-            if "```" in cleaned_content:
-                cleaned_content = re.sub(r"^```json\s*", "", cleaned_content, flags=re.MULTILINE)
-                cleaned_content = re.sub(r"^```\s*", "", cleaned_content, flags=re.MULTILINE)
-                cleaned_content = re.sub(r"```$", "", cleaned_content, flags=re.MULTILINE).strip()
+            # More robustly find the JSON block
+            json_match = re.search(r"```(?:json)?\s*(\{.*\})\s*```", cleaned_content, re.DOTALL)
+            if json_match:
+                cleaned_content = json_match.group(1)
+            else:
+                # Fallback to finding the first and last curly brace
+                start_brace = cleaned_content.find('{')
+                end_brace = cleaned_content.rfind('}')
+                if start_brace != -1 and end_brace > start_brace:
+                    cleaned_content = cleaned_content[start_brace : end_brace + 1]
             
             try:
                 parsed_data = json.loads(cleaned_content)
