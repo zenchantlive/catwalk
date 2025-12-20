@@ -113,10 +113,9 @@ async def create_deployment(
 
         # Package is valid - store runtime and version in mcp_config
         logger.info(f"Package {package} validated successfully: runtime={runtime}, version={validation_result.get('version')}")
-        if "mcp_config" not in deployment.schedule_config:
-            deployment.schedule_config["mcp_config"] = {}
-        deployment.schedule_config["mcp_config"]["runtime"] = runtime
-        deployment.schedule_config["mcp_config"]["version"] = validation_result.get("version")
+        mcp_config = deployment.schedule_config.setdefault("mcp_config", {})
+        mcp_config["runtime"] = runtime
+        mcp_config["version"] = validation_result.get("version")
 
     except HTTPException:
         # Re-raise HTTPException as-is
