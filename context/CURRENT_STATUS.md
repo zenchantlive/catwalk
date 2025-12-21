@@ -62,6 +62,13 @@
 - ✅ Frontend error display (user-visible error messages)
 - ✅ Runtime detection (npm vs Python automatic)
 
+### Phase 0: User Settings & Key Management (NEW - COMPLETED! ✅)
+- ✅ Glassmorphic Sign-In Modal (integrated with NextAuth)
+- ✅ User Settings Page (/settings) with API key management
+- ✅ Backend Settings API (CRUD + Validation)
+- ✅ End-to-end encryption for stored credentials
+
+
 ---
 
 ## 🎉 What Works Right Now
@@ -145,6 +152,8 @@ def fix_postgres_url(cls, v: str) -> str:
 - `openai>=1.0.0` - Required by `app/services/analysis.py`
 - `sse-starlette>=2.0.0` - Required by `app/api/mcp.py` (legacy SSE)
 - `psycopg[binary]>=3.1.0` - PostgreSQL async driver
+- `email-validator>=2.1.0` - Required by Pydantic for EmailStr (caused crash loop on Fly)
+
 
 **Always verify**: All imports in the codebase have corresponding packages in `requirements.txt`
 

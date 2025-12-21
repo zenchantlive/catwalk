@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ReactQueryProvider from "./providers";
+import { SignInModal } from "@/components/auth/sign-in-modal";
+import { Toaster } from "@/components/ui/toaster";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,6 +32,8 @@ export default function RootLayout({
       >
         <ReactQueryProvider>
           {children}
+          <SignInModal />
+          <Toaster />
         </ReactQueryProvider>
       </body>
     </html>

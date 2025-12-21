@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     # Secret key for Fernet encryption. Must be a valid 32-byte url-safe base64 string.
     ENCRYPTION_KEY: Optional[str] = None
 
+    # JWT Authentication (shared with Auth.js frontend)
+    # This secret is used to verify JWT tokens from Auth.js (NextAuth v5)
+    # MUST match AUTH_SECRET in frontend .env
+    AUTH_SECRET: Optional[str] = None
+
     # LLM Provider Configuration
     # key for OpenRouter to access Claude/OpenAI/etc.
     OPENROUTER_API_KEY: Optional[str] = None

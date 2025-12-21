@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm.attributes import flag_modified
-from typing import List
+from typing import List, Dict
 from app.db.session import get_db
 from app.models.deployment import Deployment
 from app.models.credential import Credential
