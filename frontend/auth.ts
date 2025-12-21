@@ -56,6 +56,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "X-Auth-Secret": process.env.AUTH_SECRET || "", // Use AUTH_SECRET as the shared secret
           },
           body: JSON.stringify({
             email: user.email!,

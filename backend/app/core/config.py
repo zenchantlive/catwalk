@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     # This secret is used to verify JWT tokens from Auth.js (NextAuth v5)
     # MUST match AUTH_SECRET in frontend .env
     AUTH_SECRET: Optional[str] = None
+    
+    # Secret shared between NextAuth and Backend for sync-user endpoint
+    # Used to secure the /auth/sync-user endpoint for server-to-server calls
+    AUTH_SYNC_SECRET: Optional[str] = None
 
     # LLM Provider Configuration
     # key for OpenRouter to access Claude/OpenAI/etc.

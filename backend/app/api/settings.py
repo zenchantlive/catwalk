@@ -58,28 +58,12 @@ async def get_settings(
             updated_at=datetime.utcnow(),
         )
 
-    # Decrypt API keys
-    encryption_service = EncryptionService()
-
-    fly_token = None
-    if settings.encrypted_fly_api_token:
-        try:
-            fly_token = encryption_service.decrypt(settings.encrypted_fly_api_token)
-        except Exception:
-            # If decryption fails, treat as None
-            pass
-
-    openrouter_key = None
-    if settings.encrypted_openrouter_api_key:
-        try:
-            openrouter_key = encryption_service.decrypt(settings.encrypted_openrouter_api_key)
-        except Exception:
-            # If decryption fails, treat as None
-            pass
-
+    # Decrypt API keys (for internal use if needed, but we won't return them)
+    # We only return flags indicating if they exist
+    
     return SettingsResponse(
-        fly_api_token=fly_token,
-        openrouter_api_key=openrouter_key,
+        fly_api_token=None,  # NEVER return decrypted secrets
+        openrouter_api_key=None,
         has_fly_token=bool(settings.encrypted_fly_api_token),
         has_openrouter_key=bool(settings.encrypted_openrouter_api_key),
         updated_at=settings.updated_at,
@@ -103,7 +87,7 @@ async def update_settings(
         db: Database session
 
     Returns:
-        SettingsResponse: Updated settings (with decrypted keys)
+        SettingsResponse: Updated settings status (secrets masked)
     """
     # Fetch existing settings or create new
     result = await db.execute(
@@ -139,13 +123,15 @@ async def update_settings(
 
     settings.updated_at = datetime.utcnow()
 
+    print(f"[AUDIT] Settings updated for user ID: {current_user.id}")
+
     await db.commit()
     await db.refresh(settings)
 
-    # Return decrypted settings
+    # Return masked settings
     return SettingsResponse(
-        fly_api_token=settings_data.fly_api_token,
-        openrouter_api_key=settings_data.openrouter_api_key,
+        fly_api_token=None,
+        openrouter_api_key=None,
         has_fly_token=bool(settings.encrypted_fly_api_token),
         has_openrouter_key=bool(settings.encrypted_openrouter_api_key),
         updated_at=settings.updated_at,
