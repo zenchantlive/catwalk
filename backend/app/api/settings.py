@@ -1,5 +1,6 @@
 """User settings API endpoints for managing API keys."""
 from datetime import datetime
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +13,7 @@ from app.core.auth import get_current_user
 from app.services.encryption import EncryptionService
 
 router = APIRouter(prefix="/settings", tags=["settings"])
+logger = logging.getLogger(__name__)
 
 
 class SettingsRequest(BaseModel):
@@ -123,7 +125,7 @@ async def update_settings(
             settings.encrypted_openrouter_api_key = None
 
     # updated_at is automatically handled by database onupdate=func.now()
-    print(f"[AUDIT] Settings updated for user ID: {current_user.id}")
+    logger.info("[AUDIT] settings_update user_id=%s", current_user.id)
 
     await db.commit()
     await db.refresh(settings)

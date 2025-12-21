@@ -1,5 +1,6 @@
 """Authentication API endpoints."""
 from datetime import datetime
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Header, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +11,7 @@ from app.models.user import User
 from app.core.auth import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 
 class SyncUserRequest(BaseModel):
@@ -75,7 +77,7 @@ async def sync_user(
         user.name = user_data.name
         user.avatar_url = user_data.avatar_url
         user.github_id = user_data.github_id
-        print(f"[AUDIT] User updated via sync: {user.email} (ID: {user.id})")
+        logger.info("[AUDIT] user_sync action=update user_id=%s", user.id)
     else:
         # Create new user
         user = User(
@@ -87,7 +89,7 @@ async def sync_user(
         db.add(user)
         # Flush to get ID for logging
         await db.flush()
-        print(f"[AUDIT] User created via sync: {user.email} (ID: {user.id})")
+        logger.info("[AUDIT] user_sync action=create user_id=%s", user.id)
 
     await db.commit()
     await db.refresh(user)

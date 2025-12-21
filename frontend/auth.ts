@@ -9,9 +9,27 @@ import GitHub from "next-auth/providers/github"
  *
  * Environment variables required:
  * - AUTH_SECRET: Random secret for JWT signing (generate with: openssl rand -base64 32)
+ * - AUTH_SYNC_SECRET: Shared secret for backend `/api/auth/sync-user` (server-only; do not expose to browser)
  * - AUTH_GITHUB_ID: GitHub OAuth App Client ID
  * - AUTH_GITHUB_SECRET: GitHub OAuth App Client Secret
  */
+type GitHubProfileFields = {
+  id?: string | number
+  avatar_url?: string
+}
+
+function getGitHubProfileFields(profile: unknown): GitHubProfileFields {
+  if (!profile || typeof profile !== "object") return {}
+  const maybeProfile = profile as Partial<Record<keyof GitHubProfileFields, unknown>>
+  const id = maybeProfile.id
+  const avatarUrl = maybeProfile.avatar_url
+
+  return {
+    id: typeof id === "string" || typeof id === "number" ? id : undefined,
+    avatar_url: typeof avatarUrl === "string" ? avatarUrl : undefined,
+  }
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     GitHub({
@@ -29,42 +47,50 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, account, profile }) {
       // On first sign-in, add GitHub info to token
       if (account && profile) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (token as any).githubId = profile.id as string
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (token as any).avatarUrl = (profile as any).avatar_url
+        const { id, avatar_url } = getGitHubProfileFields(profile)
+        const tokenRecord = token as unknown as Record<string, unknown>
+        tokenRecord.githubId = id != null ? String(id) : undefined
+        tokenRecord.avatarUrl = avatar_url
       }
       return token
     },
     async session({ session, token }) {
       // Add custom fields to session
       if (session.user) {
+        const tokenRecord = token as unknown as Record<string, unknown>
+        const githubId = typeof tokenRecord.githubId === "string" ? tokenRecord.githubId : ""
+        const avatarUrl = typeof tokenRecord.avatarUrl === "string" ? tokenRecord.avatarUrl : ""
+
         session.user.id = token.sub!
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        session.user.githubId = (token as any).githubId as string
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        session.user.avatarUrl = (token as any).avatarUrl as string
+        session.user.githubId = githubId
+        session.user.avatarUrl = avatarUrl
       }
       return session
     },
     async signIn({ user, account: _account, profile }) {
       // Sync user to backend after successful sign-in
       try {
+        const syncSecret = process.env.AUTH_SYNC_SECRET
+        if (!syncSecret) {
+          console.warn("AUTH_SYNC_SECRET is not set; skipping backend user sync")
+          return true
+        }
+
         // Use dedicated backend URL for direct backend calls
         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
+        const { id, avatar_url } = getGitHubProfileFields(profile)
 
         await fetch(`${backendUrl}/api/auth/sync-user`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-Auth-Secret": process.env.AUTH_SECRET || "", // Use AUTH_SECRET as the shared secret
+            "X-Auth-Secret": syncSecret,
           },
           body: JSON.stringify({
             email: user.email!,
             name: user.name || null,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            avatar_url: (profile as any)?.avatar_url || user.image || null,
-            github_id: profile?.id || null,
+            avatar_url: avatar_url || user.image || null,
+            github_id: id != null ? String(id) : null,
           }),
         })
       } catch (error) {
@@ -99,10 +125,3 @@ declare module "next-auth" {
     }
   }
 }
-
-// declare module "next-auth/jwt" {
-//   interface JWT {
-//     githubId?: string
-//     avatarUrl?: string
-//   }
-// }
