@@ -35,10 +35,19 @@ class Settings(BaseSettings):
     # Secret key for Fernet encryption. Must be a valid 32-byte url-safe base64 string.
     ENCRYPTION_KEY: Optional[str] = None
 
+    # Deployment Environment
+    # Used for safety checks (e.g., fail-fast secrets in production)
+    ENVIRONMENT: str = "development"
+
     # JWT Authentication (shared with Auth.js frontend)
     # This secret is used to verify JWT tokens from Auth.js (NextAuth v5)
     # MUST match AUTH_SECRET in frontend .env
     AUTH_SECRET: Optional[str] = None
+
+    # Optional JWT claim binding for additional hardening.
+    # If set, backend will validate issuer/audience on incoming JWTs.
+    AUTH_JWT_ISSUER: Optional[str] = None
+    AUTH_JWT_AUDIENCE: Optional[str] = None
     
     # Secret shared between NextAuth and Backend for sync-user endpoint
     # Used to secure the /auth/sync-user endpoint for server-to-server calls
@@ -77,6 +86,17 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"FLY_MCP_IMAGE must be a valid Docker image reference (e.g., 'registry.fly.io/app:tag'), got: {self.FLY_MCP_IMAGE}"
             )
+        return self
+
+    @model_validator(mode="after")
+    def validate_security_config(self) -> "Settings":
+        """
+        Validate security-critical settings.
+
+        In production-like environments, fail fast if AUTH_SECRET is missing.
+        """
+        if self.ENVIRONMENT.lower() in {"production", "prod"} and not self.AUTH_SECRET:
+            raise ValueError("AUTH_SECRET must be set in production")
         return self
     
     # Pydantic Configuration

@@ -13,6 +13,9 @@ export async function createBackendAccessToken(user: BackendTokenUser): Promise<
     throw new Error("AUTH_SECRET is not set")
   }
 
+  const issuer = process.env.AUTH_JWT_ISSUER || "catwalk-live"
+  const audience = process.env.AUTH_JWT_AUDIENCE || "catwalk-live-backend"
+
   const nowSeconds = Math.floor(Date.now() / 1000)
   const secretKey = new TextEncoder().encode(secret)
 
@@ -23,8 +26,9 @@ export async function createBackendAccessToken(user: BackendTokenUser): Promise<
   })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(user.id)
+    .setIssuer(issuer)
+    .setAudience(audience)
     .setIssuedAt(nowSeconds)
     .setExpirationTime(nowSeconds + 5 * 60)
     .sign(secretKey)
 }
-

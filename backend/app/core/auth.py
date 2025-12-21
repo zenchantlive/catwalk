@@ -83,15 +83,30 @@ def verify_jwt_token(token: str) -> JWTPayload:
         - Verifies expiration automatically
     """
     try:
+        if not settings.AUTH_SECRET:
+            logger.error("AUTH_SECRET is not configured; refusing to verify JWTs")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Server authentication is not configured",
+            )
+
+        required_claims = ["sub", "email", "exp"]
+        if settings.AUTH_JWT_ISSUER:
+            required_claims.append("iss")
+        if settings.AUTH_JWT_AUDIENCE:
+            required_claims.append("aud")
+
         # Decode and verify JWT signature
         payload = jwt.decode(
             token,
             settings.AUTH_SECRET,
             algorithms=["HS256"],
+            issuer=settings.AUTH_JWT_ISSUER,
+            audience=settings.AUTH_JWT_AUDIENCE,
             options={
                 "verify_signature": True,
                 "verify_exp": True,  # Auto-check expiration
-                "require": ["sub", "email", "exp"]  # Required claims
+                "require": required_claims,  # Required claims
             }
         )
 
@@ -257,6 +272,12 @@ def create_test_token(user_email: str, expires_in_minutes: int = 30) -> str:
         headers = {"Authorization": f"Bearer {token}"}
         response = client.get("/api/protected", headers=headers)
     """
+    if settings.ENVIRONMENT.lower() in {"production", "prod"}:
+        raise RuntimeError("create_test_token is not allowed in production")
+
+    if not settings.AUTH_SECRET:
+        raise RuntimeError("AUTH_SECRET is not configured")
+
     now = datetime.utcnow()
     payload = {
         "sub": "test-user-id",
