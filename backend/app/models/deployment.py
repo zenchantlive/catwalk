@@ -22,10 +22,10 @@ class Deployment(Base):
     )
 
     # Foreign key to User (owner of this deployment)
-    user_id: Mapped[uuid.UUID] = mapped_column(
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True
     )
 

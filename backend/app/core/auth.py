@@ -18,7 +18,9 @@ JWT Payload Structure (from Auth.js):
 """
 import jwt
 from datetime import datetime, timedelta
+import logging
 from typing import Optional
+from uuid import UUID
 from fastapi import HTTPException, status, Request, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import select
@@ -28,6 +30,7 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.models.user import User
 
+logger = logging.getLogger(__name__)
 
 # Security scheme for Swagger UI
 security = HTTPBearer(
@@ -101,9 +104,10 @@ def verify_jwt_token(token: str) -> JWTPayload:
             headers={"WWW-Authenticate": "Bearer"}
         )
     except jwt.InvalidTokenError as e:
+        logger.info("JWT validation failed", exc_info=e)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid token: {str(e)}",
+            detail="Invalid token",
             headers={"WWW-Authenticate": "Bearer"}
         )
 
@@ -139,16 +143,40 @@ async def get_current_user(
     # Verify JWT and extract payload
     payload = verify_jwt_token(credentials.credentials)
 
-    # Query user from database by email
-    result = await db.execute(
-        select(User).where(User.email == payload.email)
-    )
-    user = result.scalar_one_or_none()
+    user: User | None = None
 
-    if not user:
+    # Prefer stable identifier binding when possible.
+    try:
+        sub_uuid = UUID(payload.sub)
+    except ValueError:
+        sub_uuid = None
+
+    if sub_uuid:
+        result = await db.execute(select(User).where(User.id == sub_uuid))
+        user = result.scalar_one_or_none()
+
+    # Backwards-compatible fallback for older tokens / legacy flows.
+    if not user and payload.email:
+        result = await db.execute(select(User).where(User.email == payload.email))
+        user = result.scalar_one_or_none()
+
+    # If both are present, ensure token claims match the stored user.
+    if user and payload.email and user.email != payload.email:
+        logger.warning(
+            "JWT claim mismatch: subject resolved to user_id=%s but email claim differs",
+            user.id,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"User not found: {payload.email}. Please complete onboarding.",
+            detail="Unauthorized",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not user:
+        logger.info("Authenticated user not found for provided token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized",
             headers={"WWW-Authenticate": "Bearer"}
         )
 
@@ -189,10 +217,24 @@ async def get_optional_user(
 
     try:
         payload = verify_jwt_token(token)
-        result = await db.execute(
-            select(User).where(User.email == payload.email)
-        )
-        return result.scalar_one_or_none()
+        try:
+            sub_uuid = UUID(payload.sub)
+        except ValueError:
+            sub_uuid = None
+
+        if sub_uuid:
+            result = await db.execute(select(User).where(User.id == sub_uuid))
+            user = result.scalar_one_or_none()
+            if user and payload.email and user.email != payload.email:
+                return None
+            if user:
+                return user
+
+        if payload.email:
+            result = await db.execute(select(User).where(User.email == payload.email))
+            return result.scalar_one_or_none()
+
+        return None
     except HTTPException:
         return None
 

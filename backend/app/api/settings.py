@@ -10,7 +10,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.models.user_settings import UserSettings
 from app.core.auth import get_current_user
-from app.services.encryption import EncryptionService
+from app.services.encryption import EncryptionService, get_encryption_service
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ class SettingsRequest(BaseModel):
 
 
 class SettingsResponse(BaseModel):
-    """Response model for user settings (decrypted)."""
+    """Response model for user settings (secrets are masked)."""
     fly_api_token: str | None
     openrouter_api_key: str | None
     has_fly_token: bool
@@ -78,6 +78,7 @@ async def update_settings(
     settings_data: SettingsRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    encryption_service: EncryptionService = Depends(get_encryption_service),
 ):
     """
     Update user's API keys (encrypted before storage).
@@ -97,8 +98,6 @@ async def update_settings(
         select(UserSettings).where(UserSettings.user_id == current_user.id)
     )
     settings = result.scalar_one_or_none()
-
-    encryption_service = EncryptionService()
 
     if not settings:
         # Create new settings

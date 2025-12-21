@@ -1,6 +1,7 @@
 """Authentication API endpoints."""
 from datetime import datetime
 import logging
+import secrets
 from fastapi import APIRouter, Depends, HTTPException, Header, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,7 +61,7 @@ async def sync_user(
             detail="Backend configuration error: Authentication sync secret not set"
         )
     
-    if x_auth_secret != settings.AUTH_SYNC_SECRET:
+    if not x_auth_secret or not secrets.compare_digest(x_auth_secret, settings.AUTH_SYNC_SECRET):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication secret"

@@ -35,7 +35,8 @@ export const SettingsService = {
             if (res.status === 401) {
                 throw new Error("Unauthorized")
             }
-            throw new Error("Failed to fetch settings")
+            const errorBody = await res.text().catch(() => "Could not read error body")
+            throw new Error(`Failed to fetch settings (${res.status}): ${errorBody}`)
         }
 
         return res.json()
@@ -54,7 +55,11 @@ export const SettingsService = {
         })
 
         if (!res.ok) {
-            throw new Error("Failed to update settings")
+            if (res.status === 401) {
+                throw new Error("Unauthorized")
+            }
+            const errorBody = await res.text().catch(() => "Could not read error body")
+            throw new Error(`Failed to update settings (${res.status}): ${errorBody}`)
         }
 
         return res.json()
@@ -69,7 +74,11 @@ export const SettingsService = {
         })
 
         if (!res.ok) {
-            throw new Error("Failed to delete settings")
+            if (res.status === 401) {
+                throw new Error("Unauthorized")
+            }
+            const errorBody = await res.text().catch(() => "Could not read error body")
+            throw new Error(`Failed to delete settings (${res.status}): ${errorBody}`)
         }
     },
 }

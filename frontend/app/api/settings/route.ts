@@ -3,7 +3,8 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { createBackendAccessToken } from "@/lib/backend-access-token"
 
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
+const backendUrl =
+  process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
 
 async function forwardToBackend(request: Request): Promise<Response> {
   const session = await auth()
@@ -58,4 +59,3 @@ export async function DELETE(request: Request): Promise<Response> {
   const response = await forwardToBackend(request)
   return toClientResponse(response)
 }
-
