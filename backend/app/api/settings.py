@@ -8,7 +8,7 @@ from sqlalchemy import select
 from app.db.session import get_db
 from app.models.user import User
 from app.models.user_settings import UserSettings
-from app.middleware.auth import get_current_user
+from app.core.auth import get_current_user
 from app.services.encryption import EncryptionService
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -50,12 +50,13 @@ async def get_settings(
 
     if not settings:
         # Return empty settings if user hasn't saved any yet
+        from datetime import timezone
         return SettingsResponse(
             fly_api_token=None,
             openrouter_api_key=None,
             has_fly_token=False,
             has_openrouter_key=False,
-            updated_at=datetime.utcnow(),
+            updated_at=datetime.now(timezone.utc),
         )
 
     # Decrypt API keys (for internal use if needed, but we won't return them)
@@ -121,8 +122,7 @@ async def update_settings(
             # Empty string means remove the key
             settings.encrypted_openrouter_api_key = None
 
-    settings.updated_at = datetime.utcnow()
-
+    # updated_at is automatically handled by database onupdate=func.now()
     print(f"[AUDIT] Settings updated for user ID: {current_user.id}")
 
     await db.commit()

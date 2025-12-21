@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from typing import Any, Dict, TYPE_CHECKING
-from sqlalchemy import String, JSON, DateTime, ForeignKey
+from sqlalchemy import String, JSON, DateTime, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from app.db.base import Base
@@ -46,11 +46,16 @@ class Deployment(Base):
     error_message: Mapped[str] = mapped_column(String, nullable=True)
     
     # Timestamp when the record was created, defaults to UTC now
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
     
     # Timestamp when the record was last updated, updates automatically on change
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now()
     )
 
     # Relationships

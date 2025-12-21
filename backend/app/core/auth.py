@@ -76,14 +76,14 @@ def verify_jwt_token(token: str) -> JWTPayload:
 
     Security Notes:
         - Uses HS256 algorithm (symmetric key)
-        - Shared secret with frontend via NEXTAUTH_SECRET
+        - Shared secret with frontend via AUTH_SECRET
         - Verifies expiration automatically
     """
     try:
         # Decode and verify JWT signature
         payload = jwt.decode(
             token,
-            settings.NEXTAUTH_SECRET,
+            settings.AUTH_SECRET,
             algorithms=["HS256"],
             options={
                 "verify_signature": True,
@@ -225,4 +225,4 @@ def create_test_token(user_email: str, expires_in_minutes: int = 30) -> str:
         "exp": int((now + timedelta(minutes=expires_in_minutes)).timestamp())
     }
 
-    return jwt.encode(payload, settings.NEXTAUTH_SECRET, algorithm="HS256")
+    return jwt.encode(payload, settings.AUTH_SECRET, algorithm="HS256")

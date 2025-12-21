@@ -1,13 +1,13 @@
 """Authentication API endpoints."""
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db.session import get_db
 from app.models.user import User
-from app.middleware.auth import get_current_user
+from app.core.auth import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -70,12 +70,11 @@ async def sync_user(
     )
     user = result.scalar_one_or_none()
 
-        if user:
-        # Update existing user
+    if user:
+        # Update existing user (updated_at handled by database onupdate)
         user.name = user_data.name
         user.avatar_url = user_data.avatar_url
         user.github_id = user_data.github_id
-        user.updated_at = datetime.utcnow()
         print(f"[AUDIT] User updated via sync: {user.email} (ID: {user.id})")
     else:
         # Create new user

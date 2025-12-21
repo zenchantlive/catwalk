@@ -50,9 +50,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async signIn({ user, account: _account, profile }) {
       // Sync user to backend after successful sign-in
       try {
-        const backendUrl = process.env.NEXT_PUBLIC_API_URL?.replace("/:path*", "") || "http://localhost:8000"
+        // Use dedicated backend URL for direct backend calls
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
 
-        await fetch(`${backendUrl}/auth/sync-user`, {
+        await fetch(`${backendUrl}/api/auth/sync-user`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

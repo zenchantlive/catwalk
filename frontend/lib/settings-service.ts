@@ -4,7 +4,8 @@
  * Handles API calls for user settings (API keys).
  */
 
-const API_BASE = "http://localhost:8000" // Should ideally use env var or match api.ts
+// Use relative paths - Next.js API proxy handles routing to backend
+const API_BASE = ""
 
 export interface SettingsResponse {
     fly_api_token: string | null
