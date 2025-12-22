@@ -8,10 +8,16 @@ import { getDeployments } from "@/lib/api";
 import { Navbar } from "@/components/layout/navbar";
 
 export default function DashboardPage() {
-    const { data: deployments, isLoading } = useQuery({
+    const { data: deployments, isLoading, error } = useQuery({
         queryKey: ["deployments"],
         queryFn: getDeployments,
     });
+
+    {error && (
+      <div className="text-red-500">
+        Error loading deployments: {error.message}
+      </div>
+    )}
 
     return (
         <>
