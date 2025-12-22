@@ -41,8 +41,7 @@ const secretKey = new TextEncoder().encode(AUTH_SECRET)
 
 try {
   const token = await new SignJWT({
-    email: testUser.email,
-    name: testUser.name,
+    ...testUser,
     picture: testUser.image ?? undefined,
   })
     .setProtectedHeader({ alg: "HS256" })
