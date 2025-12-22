@@ -161,5 +161,8 @@ async def delete_settings(
         await db.delete(settings)
         await db.commit()
         logger.info("[AUDIT] settings_delete user_id=%s", current_user.id)
+    if settings:
+        logger.info("[AUDIT] settings_delete user_id=%s", current_user.id)
         await db.delete(settings)
+        await db.commit()
     return {"message": "Settings deleted successfully"}
