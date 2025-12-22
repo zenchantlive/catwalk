@@ -64,11 +64,15 @@ async def analyze_repository(
     logger.info(f"Cache miss for {normalized_url}, performing analysis...")
     
     try:
-        result = await analysis_service.analyze_repo(
-            repo_url=raw_url,
-            user_id=current_user.id,
-            db=db
-        )
+        try:
+            result = await analysis_service.analyze_repo(
+                repo_url=raw_url,
+                user_id=current_user.id,
+                db=db
+            )
+        except Exception as e:
+            logger.error(f"Unexpected analysis error for {raw_url}: {e}")
+            return AnalyzeResponse(status="failed", error="Internal analysis error")
     except ValueError as e:
         # User doesn't have OpenRouter key
         logger.error(f"Analysis failed for {raw_url}: {str(e)}")
