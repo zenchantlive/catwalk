@@ -21,9 +21,9 @@ async def test_analyze_repo_success():
             
             # Run analysis
             result = await service.analyze_repo("https://github.com/test/repo")
-            
-            # Verify
-            assert result["raw_analysis"] == '{"package_name": "test-pkg"}'
+
+            # Verify - analyze_repo now returns parsed JSON directly
+            assert result["package_name"] == "test-pkg"
             
             # Verify tool was passed
             call_args = service.client.chat.completions.create.call_args

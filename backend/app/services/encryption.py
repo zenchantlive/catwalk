@@ -1,5 +1,6 @@
 from cryptography.fernet import Fernet, InvalidToken
 from app.core.config import settings
+from functools import lru_cache
 
 class EncryptionService:
     """
@@ -73,3 +74,14 @@ class EncryptionService:
         except InvalidToken:
             # Raise a clear error if decryption fails
             raise ValueError("Invalid token: Decryption failed")
+
+
+@lru_cache(maxsize=1)
+def get_encryption_service() -> EncryptionService:
+    """
+    FastAPI dependency that reuses a single EncryptionService instance.
+
+    EncryptionService is stateless after initialization (it holds a Fernet cipher),
+    so it is safe and more efficient to reuse across requests.
+    """
+    return EncryptionService()

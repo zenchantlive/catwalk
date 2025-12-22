@@ -4,6 +4,7 @@ import { ArrowRight, Search, Zap, Loader2, Globe, Github } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useMutation } from "@tanstack/react-query";
 import { analyzeRepo } from "@/lib/api";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -32,6 +33,16 @@ export default function Home() {
 
       {/* Background Gradient Blob */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-[var(--pk-accent-primary-from)]/10 rounded-full blur-[120px] pointer-events-none" />
+
+      {/* Header */}
+      <header className="absolute top-0 w-full p-6 flex justify-between items-center z-20 max-w-7xl">
+        <div className="flex items-center gap-2">
+          {/* Logo placeholder if needed */}
+        </div>
+        <nav>
+          <AuthButton />
+        </nav>
+      </header>
 
       <main className="relative z-10 w-full max-w-5xl text-center space-y-10 pt-20">
 
@@ -118,4 +129,28 @@ export default function Home() {
       </main>
     </div>
   );
+}
+
+function AuthButton() {
+  const { data: session } = useSession();
+
+  if (session) {
+    return (
+      <Link
+        href="/dashboard"
+        className="px-4 py-2 text-sm font-medium text-white bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+      >
+        Dashboard
+      </Link>
+    )
+  }
+
+  return (
+    <Link
+      href="/?signin=true"
+      className="px-4 py-2 text-sm font-medium text-black bg-white hover:bg-gray-100 rounded-lg transition-colors"
+    >
+      Sign In
+    </Link>
+  )
 }

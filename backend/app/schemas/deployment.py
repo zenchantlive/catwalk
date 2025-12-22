@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Dict, Any, Optional
 from datetime import datetime
 from uuid import UUID
@@ -20,5 +20,4 @@ class DeploymentResponse(DeploymentBase):
     connection_url: str  # Computed field
     error_message: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

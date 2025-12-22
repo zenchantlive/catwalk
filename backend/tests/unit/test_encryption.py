@@ -17,9 +17,12 @@ def test_encryption_round_trip(valid_key):
     assert decrypted == original_text
 
 def test_service_initialization_failure():
-    # Simulate missing key in settings
-    with pytest.raises(ValueError):
-        EncryptionService(key=None)
+    # Simulate missing key in settings by patching settings.ENCRYPTION_KEY
+    from unittest.mock import patch
+    with patch("app.services.encryption.settings") as mock_settings:
+        mock_settings.ENCRYPTION_KEY = None
+        with pytest.raises(ValueError, match="ENCRYPTION_KEY is not set"):
+            EncryptionService(key=None)
 
 def test_empty_input(valid_key):
     service = EncryptionService(key=valid_key)

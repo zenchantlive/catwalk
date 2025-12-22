@@ -9,7 +9,9 @@
 - ✅ Glama registry integration (12K+ servers)
 - ✅ Streamable HTTP transport (MCP 2025-06-18 spec)
 - ✅ Credential encryption and storage
+- ✅ Security Hardening (Secret masking, Audit logs)
 - ✅ Frontend connects to production backend
+
 
 ### Critical Gaps (Must Fix First)
 - ❌ No package validation (deployments fail silently)

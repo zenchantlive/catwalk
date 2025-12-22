@@ -20,6 +20,6 @@ def test_generate_anthropic_form():
 
 def test_generate_invalid_service_form():
     response = client.get("/api/forms/generate/unknown-service")
-    # Pydantic validation for the 'service_type' Literal path param 
-    # will actually catch this before logical code execution, returning 422
-    assert response.status_code == 422
+    # Unknown service type returns 404 (service schema not found)
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()
