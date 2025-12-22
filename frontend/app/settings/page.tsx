@@ -85,12 +85,10 @@ export default function SettingsPage() {
   }
 
   const handleDeleteAll = async () => {
-    if (
-      !window.confirm(
-        "Are you sure you want to delete all your API keys? This cannot be undone."
-      )
-    ) {
-      return
+    // Use AlertDialog component from shadcn/ui instead of window.confirm
+    const handleDeleteAll = async () => {
+      // Trigger AlertDialog state (implement with useState)
+      setShowDeleteConfirm(true)
     }
 
     try {
