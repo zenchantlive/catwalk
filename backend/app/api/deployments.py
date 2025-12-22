@@ -238,9 +238,12 @@ async def create_deployment(
 @router.get("", response_model=List[DeploymentResponse])
 async def list_deployments(
     request: Request,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    result = await db.execute(select(Deployment))
+    result = await db.execute(
+        select(Deployment).where(Deployment.user_id == current_user.id)
+    )
     deployments = result.scalars().all()
     
     responses = []
