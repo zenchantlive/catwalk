@@ -72,6 +72,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       try {
         const syncSecret = process.env.AUTH_SYNC_SECRET
         if (!syncSecret) {
+          if (process.env.NODE_ENV === "production") {
+            throw new Error("AUTH_SYNC_SECRET is required in production")
+          }
           console.warn("AUTH_SYNC_SECRET is not set; skipping backend user sync")
           return true
         }

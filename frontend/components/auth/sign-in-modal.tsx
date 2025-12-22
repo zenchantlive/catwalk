@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useSearchParams, useRouter, usePathname } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { signIn } from "next-auth/react"
 import { Github } from "lucide-react"
 
@@ -17,7 +17,6 @@ import { Button } from "@/components/ui/button"
 export function SignInModal() {
     const searchParams = useSearchParams()
     const router = useRouter()
-    const pathname = usePathname()
     const [isOpen, setIsOpen] = useState(false)
 
     useEffect(() => {
@@ -33,10 +32,9 @@ export function SignInModal() {
         setIsOpen(open)
         if (!open) {
             // Remove query param when closing
-            const params = new URLSearchParams(searchParams.toString())
-            params.delete("signin")
-            // Replace URL without push to avoid history clutter, but keep current path
-            router.replace(`${pathname}?${params.toString()}`)
+            const url = new URL(window.location.href)
+            url.searchParams.delete("signin")
+            router.replace(`${url.pathname}${url.search}${url.hash}`)
         }
     }
 
