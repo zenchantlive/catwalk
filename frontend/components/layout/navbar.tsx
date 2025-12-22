@@ -138,7 +138,7 @@ export function Navbar() {
               </>
             ) : (
               <Link
-                href="/?signin=true"
+                href="/api/auth/signin"
                 className="btn-aurora px-4 py-2 text-sm rounded-lg"
               >
                 Sign In
