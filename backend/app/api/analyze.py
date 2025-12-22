@@ -3,6 +3,8 @@ from pydantic import BaseModel
 from app.services.analysis import AnalysisService # type: ignore
 from app.services.cache import CacheService # type: ignore
 from app.utils.url_helpers import normalize_github_url
+from app.models.user import User
+from app.core.auth import get_current_user
 import logging
 
 router = APIRouter()
@@ -30,6 +32,7 @@ class AnalyzeResponse(BaseModel):
 @router.post("", response_model=AnalyzeResponse)
 async def analyze_repository(
     request: AnalyzeRequest,
+    current_user: User = Depends(get_current_user),
     analysis_service: AnalysisService = Depends(get_analysis_service),
     cache_service: CacheService = Depends(get_cache_service),
     db: AsyncSession = Depends(get_db)
@@ -39,13 +42,15 @@ async def analyze_repository(
 
     This endpoint checks the cache first, then performs analysis if needed.
     Results are cached for 1 week to avoid redundant API calls.
+    
+    Requires authentication - uses user's OpenRouter API key.
     """
     # CRITICAL: Normalize the URL to ensure consistent cache keys
     # This prevents cache misses due to trailing slashes, case differences, etc.
     raw_url = request.repo_url
     normalized_url = normalize_github_url(raw_url)
 
-    logger.info(f"Analyzing repository: {raw_url}")
+    logger.info(f"Analyzing repository: {raw_url} for user {current_user.id}")
     if raw_url != normalized_url:
         logger.info(f"  Normalized to: {normalized_url}")
 
@@ -55,9 +60,19 @@ async def analyze_repository(
         logger.info(f"Cache hit for {normalized_url}")
         return AnalyzeResponse(status="cached", data=cached_result)
 
-    # Cache miss - perform analysis
+    # Cache miss - perform analysis (with user's API key)
     logger.info(f"Cache miss for {normalized_url}, performing analysis...")
-    result = await analysis_service.analyze_repo(raw_url)
+    
+    try:
+        result = await analysis_service.analyze_repo(
+            repo_url=raw_url,
+            user_id=current_user.id,
+            db=db
+        )
+    except ValueError as e:
+        # User doesn't have OpenRouter key
+        logger.error(f"Analysis failed for {raw_url}: {str(e)}")
+        return AnalyzeResponse(status="failed", error=str(e))
 
     if "error" in result:
         logger.error(f"Analysis failed for {raw_url}: {result['error']}")

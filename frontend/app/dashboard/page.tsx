@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { useQuery } from "@tanstack/react-query";
 import { getDeployments } from "@/lib/api";
+import { Navbar } from "@/components/layout/navbar";
 
 export default function DashboardPage() {
     const { data: deployments, isLoading } = useQuery({
@@ -13,7 +14,9 @@ export default function DashboardPage() {
     });
 
     return (
-        <div className="min-h-screen p-6 md:p-12 space-y-8">
+        <>
+            <Navbar />
+            <div className="min-h-screen p-6 md:p-12 space-y-8">
             <header className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-white mb-2">Dashboard</h1>
@@ -96,6 +99,7 @@ export default function DashboardPage() {
                     </div>
                 )}
             </section>
-        </div>
+            </div>
+        </>
     );
 }

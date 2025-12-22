@@ -18,6 +18,7 @@ import { useToast } from "@/components/ui/use-toast"
 // Re-implenting simple confirmation dialog via state instead of missing AlertDialog component. 
 
 import { SettingsService, type SettingsRequest, type SettingsResponse } from "@/lib/settings-service"
+import { Navbar } from "@/components/layout/navbar"
 
 export default function SettingsPage() {
   const { toast } = useToast()
@@ -85,10 +86,9 @@ export default function SettingsPage() {
   }
 
   const handleDeleteAll = async () => {
-    // Use AlertDialog component from shadcn/ui instead of window.confirm
-    const handleDeleteAll = async () => {
-      // Trigger AlertDialog state (implement with useState)
-      setShowDeleteConfirm(true)
+    // TODO: Use AlertDialog component from shadcn/ui instead of window.confirm
+    if (!window.confirm("Are you sure you want to delete all API keys? This cannot be undone.")) {
+      return;
     }
 
     try {
@@ -113,14 +113,19 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
+      <>
+        <Navbar />
+        <div className="flex h-screen items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      </>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-4 font-sans dark:bg-gray-950/50 sm:p-8">
+    <>
+      <Navbar />
+      <div className="min-h-screen bg-gray-50/50 p-4 font-sans dark:bg-gray-950/50 sm:p-8">
       <div className="mx-auto max-w-4xl space-y-8">
 
         {/* Header */}
@@ -274,5 +279,6 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
+    </>
   )
 }

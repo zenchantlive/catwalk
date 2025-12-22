@@ -8,7 +8,18 @@ const backendUrl =
 
 async function forwardToBackend(request: Request): Promise<Response> {
   const session = await auth()
+  
+  // DEBUG: Log session state
+  console.log("[API /settings] Session check:", {
+    hasSession: !!session,
+    hasUser: !!session?.user,
+    hasEmail: !!session?.user?.email,
+    userId: session?.user?.id,
+    email: session?.user?.email,
+  })
+  
   if (!session?.user?.email) {
+    console.error("[API /settings] Unauthorized - session missing or incomplete")
     return NextResponse.json({ detail: "Unauthorized" }, { status: 401 })
   }
 
