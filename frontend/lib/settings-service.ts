@@ -26,6 +26,7 @@ export const SettingsService = {
      */
     getSettings: async (): Promise<SettingsResponse> => {
         const res = await fetch(`${API_BASE}/api/settings`, {
+            credentials: 'include',
             headers: {
                 "Content-Type": "application/json",
             },
