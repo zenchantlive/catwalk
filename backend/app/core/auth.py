@@ -61,7 +61,7 @@ class JWTPayload:
 
     def is_expired(self) -> bool:
         """Check if token is expired."""
-        return datetime.utcnow().timestamp() > self.exp
+        return datetime.now(timezone.utc).timestamp() > self.exp
 
 
 def verify_jwt_token(token: str) -> JWTPayload:
