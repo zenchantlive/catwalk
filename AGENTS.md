@@ -170,6 +170,51 @@ CMD ["./docker-entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
 ```
 
+### 5. Authentication Setup (CRITICAL!)
+
+**Problem**: Missing authentication secrets prevent user sync to database, causing 401 errors on all authenticated endpoints.
+
+**Two Required Secrets**:
+
+#### AUTH_SECRET (JWT Token Signing)
+- **Purpose**: Signs and verifies JWT tokens for API authentication
+- **Used by**:
+  - Frontend: Creates JWT tokens in `createBackendAccessToken()`
+  - Backend: Verifies JWT signatures in `verify_jwt_token()`
+- **Must be set in**:
+  - Frontend `.env.local`: `AUTH_SECRET=<value>`
+  - Backend Fly.io secrets: `fly secrets set AUTH_SECRET=<value>`
+- **Generate**: `openssl rand -base64 32`
+- **Critical**: Values MUST match exactly between frontend and backend
+
+#### AUTH_SYNC_SECRET (User Sync Endpoint Security)
+- **Purpose**: Secures the `/api/auth/sync-user` endpoint (server-to-server auth)
+- **Used by**:
+  - Frontend: `auth.ts` signIn callback sends to backend
+  - Backend: `auth.py` validates incoming sync requests
+- **Must be set in**:
+  - Frontend `.env.local`: `AUTH_SYNC_SECRET=<value>`
+  - Backend Fly.io secrets: `fly secrets set AUTH_SYNC_SECRET=<value>`
+- **Generate**: `openssl rand -base64 32` (different from AUTH_SECRET)
+- **Critical**: If missing, users are NEVER synced to database!
+
+**Complete Setup Guide**: See `context/AUTH_TROUBLESHOOTING.md` for comprehensive authentication troubleshooting and setup instructions.
+
+**Quick Setup**:
+```bash
+# Generate both secrets
+AUTH_SECRET=$(openssl rand -base64 32)
+AUTH_SYNC_SECRET=$(openssl rand -base64 32)
+
+# Set on backend
+fly secrets set AUTH_SECRET="$AUTH_SECRET" --app catwalk-live-backend-dev
+fly secrets set AUTH_SYNC_SECRET="$AUTH_SYNC_SECRET" --app catwalk-live-backend-dev
+
+# Add to frontend .env.local
+echo "AUTH_SECRET=\"$AUTH_SECRET\"" >> frontend/.env.local
+echo "AUTH_SYNC_SECRET=\"$AUTH_SYNC_SECRET\"" >> frontend/.env.local
+```
+
 ## Golden Snippets (Style Guide)
 **Show, don't tell.** Follow these patterns exactly.
 
@@ -258,6 +303,8 @@ class FlyDeploymentService:
 ### ✅ Always
 - Read `context/CURRENT_STATUS.md` before starting any task
 - Read `CLAUDE.md` for deployment pitfalls and troubleshooting
+- Read `context/AUTH_TROUBLESHOOTING.md` for auth setup and debugging
+- Verify AUTH_SECRET and AUTH_SYNC_SECRET are set on both frontend and backend
 - Write tests for *critical* logic and components
 - Ensure high code quality and type safety
 - Use `fly deploy` for backend changes

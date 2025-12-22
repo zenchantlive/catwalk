@@ -17,7 +17,7 @@ JWT Payload Structure (from Auth.js):
 }
 """
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 from typing import Optional
 from uuid import UUID
@@ -91,38 +91,63 @@ def verify_jwt_token(token: str) -> JWTPayload:
             )
 
         required_claims = ["sub", "email", "exp"]
+        
+        # Build verification options
+        verify_options = {
+            "verify_signature": True,
+            "verify_exp": True,
+            "require": required_claims,
+        }
+        
+        # Only verify issuer/audience if they're configured
         if settings.AUTH_JWT_ISSUER:
             required_claims.append("iss")
+            verify_options["verify_iss"] = True
+        else:
+            verify_options["verify_iss"] = False
+            
         if settings.AUTH_JWT_AUDIENCE:
             required_claims.append("aud")
+            verify_options["verify_aud"] = True
+        else:
+            verify_options["verify_aud"] = False
+
+        # Debug logging for JWT verification config
+        logger.info(
+            "JWT verification config: issuer=%s, audience=%s, required_claims=%s, verify_options=%s",
+            settings.AUTH_JWT_ISSUER,
+            settings.AUTH_JWT_AUDIENCE,
+            required_claims,
+            verify_options
+        )
 
         # Decode and verify JWT signature
+        # NOTE: Added 60-second leeway to handle clock skew between frontend/backend servers
         payload = jwt.decode(
             token,
             settings.AUTH_SECRET,
             algorithms=["HS256"],
-            issuer=settings.AUTH_JWT_ISSUER,
-            audience=settings.AUTH_JWT_AUDIENCE,
-            options={
-                "verify_signature": True,
-                "verify_exp": True,  # Auto-check expiration
-                "require": required_claims,  # Required claims
-            }
+            issuer=settings.AUTH_JWT_ISSUER if settings.AUTH_JWT_ISSUER else None,
+            audience=settings.AUTH_JWT_AUDIENCE if settings.AUTH_JWT_AUDIENCE else None,
+            leeway=60,  # Allow 60 seconds clock skew
+            options=verify_options
         )
 
+        logger.info("JWT verification successful for user: %s", payload.get("email"))
         return JWTPayload(payload)
 
     except jwt.ExpiredSignatureError:
+        logger.warning("JWT token expired")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired. Please log in again.",
             headers={"WWW-Authenticate": "Bearer"}
         )
     except jwt.InvalidTokenError as e:
-        logger.info("JWT validation failed", exc_info=e)
+        logger.error("JWT validation failed: %s", str(e), exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            detail=f"Invalid token: {type(e).__name__}",
             headers={"WWW-Authenticate": "Bearer"}
         )
 
