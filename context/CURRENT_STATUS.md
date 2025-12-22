@@ -376,11 +376,42 @@ DATABASE_URL       # Auto-set by fly postgres attach
 ENCRYPTION_KEY     # Fernet key for credential encryption
 OPENROUTER_API_KEY # Claude API for repo analysis
 PUBLIC_URL         # https://<your-backend-app>.fly.dev
+AUTH_SECRET        # JWT token signing (must match frontend)
+AUTH_SYNC_SECRET   # User sync endpoint security (must match frontend)
 ```
+
+**Critical Authentication Requirements**:
+- **AUTH_SECRET**: Signs/verifies JWT tokens for API authentication
+  - Generate: `openssl rand -base64 32`
+  - Must match between frontend `.env.local` and backend Fly.io secrets
+  - **If missing or mismatched**: 401 errors on authenticated endpoints
+
+- **AUTH_SYNC_SECRET**: Secures `/api/auth/sync-user` endpoint
+  - Generate: `openssl rand -base64 32` (different from AUTH_SECRET)
+  - Must be set on both frontend and backend
+  - **If missing**: Users are NEVER synced to database → 401 errors after sign-in
+  - See: `context/AUTH_TROUBLESHOOTING.md` for complete auth setup guide
 
 **Generate Encryption Key**:
 ```bash
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+**Generate Auth Secrets**:
+```bash
+# Generate both secrets at once
+AUTH_SECRET=$(openssl rand -base64 32)
+AUTH_SYNC_SECRET=$(openssl rand -base64 32)
+echo "AUTH_SECRET: $AUTH_SECRET"
+echo "AUTH_SYNC_SECRET: $AUTH_SYNC_SECRET"
+
+# Set on backend
+fly secrets set AUTH_SECRET="$AUTH_SECRET" --app <your-backend-app>
+fly secrets set AUTH_SYNC_SECRET="$AUTH_SYNC_SECRET" --app <your-backend-app>
+
+# Add to frontend .env.local
+echo "AUTH_SECRET=\"$AUTH_SECRET\"" >> frontend/.env.local
+echo "AUTH_SYNC_SECRET=\"$AUTH_SYNC_SECRET\"" >> frontend/.env.local
 ```
 
 ---
@@ -457,7 +488,8 @@ fly deploy --app <your-backend-app>
 **Critical files to read first**:
 1. This file (CURRENT_STATUS.md)
 2. **Serena memories** (`.serena/*.md`) - Quick context on any topic
-3. `CLAUDE.md` for deployment pitfalls
-4. `context/ARCHITECTURE.md` for detailed system design
-5. `app/api/deployments.py` to see validation integration
-6. `PR10_FIXES_SUMMARY.md` for recent security fixes
+3. `context/AUTH_TROUBLESHOOTING.md` - Authentication setup & 401 error debugging
+4. `CLAUDE.md` for deployment pitfalls
+5. `context/ARCHITECTURE.md` for detailed system design
+6. `app/api/deployments.py` to see validation integration
+7. `PR10_FIXES_SUMMARY.md` for recent security fixes

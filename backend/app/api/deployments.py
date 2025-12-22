@@ -6,6 +6,8 @@ from typing import List, Dict
 from app.db.session import get_db
 from app.models.deployment import Deployment
 from app.models.credential import Credential
+from app.models.user import User
+from app.core.auth import get_current_user
 from app.schemas.deployment import DeploymentCreate, DeploymentResponse
 from app.services.encryption import EncryptionService
 from app.services.mcp_process_manager import start_server
@@ -36,6 +38,7 @@ async def _process_deployment_initialization(
     deployment_id: str,
     package: str,
     credentials_data: Dict[str, str],
+    user_id: str,
 ):
     """Background task to handle package validation and server provisioning."""
     from app.db.session import AsyncSessionLocal
@@ -102,15 +105,19 @@ async def _process_deployment_initialization(
 
                 logger.info(f"Starting MCP server for deployment {deployment.id}: {package} ({runtime})")
 
-                # CHECK FOR FLY.IO DEPLOYMENT FIRST
-                if settings.FLY_API_TOKEN:
+                # Try Fly.io deployment (uses user's token with fallback to system)
+                try:
                     from app.services.fly_deployment_service import FlyDeploymentService
+                    import uuid
+                    
                     fly_service = FlyDeploymentService()
 
                     machine_id = await fly_service.create_machine(
                         deployment_id=str(deployment.id),
                         mcp_config=mcp_config,
-                        credentials=env_vars
+                        credentials=env_vars,
+                        user_id=uuid.UUID(user_id),
+                        db=db
                     )
 
                     if machine_id:
@@ -123,22 +130,37 @@ async def _process_deployment_initialization(
                         deployment.error_message = "Failed to create Fly.io machine"
                         await db.commit()
 
-                else:
-                    # FALLBACK TO LOCAL SUBPROCESS
-                    success = await start_server(
-                        deployment_id=str(deployment.id),
-                        package=package,
-                        env_vars=env_vars,
-                        runtime=runtime
-                    )
-
-                    if success:
-                        deployment.status = "running"
-                    else:
-                        deployment.status = "failed"
-                        deployment.error_message = "Failed to start local subprocess"
-                    
+                except ValueError as e:
+                    # User doesn't have Fly.io token - provide helpful error
+                    deployment.status = "failed"
+                    deployment.error_message = str(e)
                     await db.commit()
+                    logger.error(f"Fly.io deployment failed: {str(e)}")
+                
+                except Exception as e:
+                    # Fly.io deployment failed, try local subprocess fallback
+                    logger.warning(f"Fly.io deployment failed, falling back to local subprocess: {str(e)}")
+                    
+                    # FALLBACK TO LOCAL SUBPROCESS
+                    try:
+                        success = await start_server(
+                            deployment_id=str(deployment.id),
+                            package=package,
+                            env_vars=env_vars,
+                            runtime=runtime
+                        )
+
+                        if success:
+                            deployment.status = "running"
+                        else:
+                            deployment.status = "failed"
+                            deployment.error_message = "Failed to start local subprocess"
+                        
+                        await db.commit()
+                    except Exception as fallback_error:
+                        deployment.status = "failed"
+                        deployment.error_message = f"Both Fly.io and local deployment failed: {str(fallback_error)}"
+                        await db.commit()
 
             except Exception as e:
                 logger.exception(f"Startup failed for deployment {deployment.id}")
@@ -154,13 +176,15 @@ async def create_deployment(
     deployment_in: DeploymentCreate,
     request: Request,
     background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    # 1. Create Deployment Record
+    # 1. Create Deployment Record (associated with user)
     deployment = Deployment(
         name=deployment_in.name,
         schedule_config=deployment_in.schedule_config,
-        status="pending"
+        status="pending",
+        user_id=current_user.id  # Associate deployment with user
     )
     db.add(deployment)
     await db.flush()
@@ -175,11 +199,7 @@ async def create_deployment(
         await db.commit()
         raise HTTPException(status_code=400, detail={"error": "package_missing", "message": deployment.error_message})
 
-    # 3. Save Credentials and collect decrypted values for background task
-    # We decrypt here because the background task needs them, and it's easier to pass them directly
-    # than to re-query and re-decrypt in the background (though re-decrypting would be more secure).
-    # Since they are kept in memory briefly, it's acceptable for this flow.
-    credentials_data = {}
+    # 3. Save Credentials
     for service, secret in deployment_in.credentials.items():
         encrypted_val = encryption_service.encrypt(secret)
         credential = Credential(
@@ -188,17 +208,16 @@ async def create_deployment(
             deployment_id=deployment.id
         )
         db.add(credential)
-        credentials_data[service] = secret
 
     await db.commit()
     await db.refresh(deployment)
 
-    # 4. Enqueue background initialization
+    # 4. Enqueue background initialization (with user_id)
     background_tasks.add_task(
         _process_deployment_initialization,
         deployment_id=str(deployment.id),
         package=package,
-        credentials_data=credentials_data
+        user_id=str(current_user.id)  # Pass user ID for fetching API keys
     )
 
     # 5. Construct Immediate Response
@@ -219,9 +238,12 @@ async def create_deployment(
 @router.get("", response_model=List[DeploymentResponse])
 async def list_deployments(
     request: Request,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    result = await db.execute(select(Deployment))
+    result = await db.execute(
+        select(Deployment).where(Deployment.user_id == current_user.id)
+    )
     deployments = result.scalars().all()
     
     responses = []

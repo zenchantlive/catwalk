@@ -7,6 +7,7 @@ import FormBuilder from "@/components/dynamic-form/FormBuilder";
 import { Loader2, ArrowLeft, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { Suspense, useState } from "react";
+import { Navbar } from "@/components/layout/navbar";
 
 function ConfigureContent() {
     const searchParams = useSearchParams();
@@ -89,16 +90,21 @@ function ConfigureContent() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <Loader2 className="animate-spin text-[var(--pk-accent-primary-from)]" size={32} />
-            </div>
+            <>
+                <Navbar />
+                <div className="min-h-screen flex items-center justify-center">
+                    <Loader2 className="animate-spin text-[var(--pk-accent-primary-from)]" size={32} />
+                </div>
+            </>
         );
     }
 
     if (error || !schema) {
         if (isLocalOnlyRegistryServer) {
             return (
-                <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-center p-6">
+                <>
+                    <Navbar />
+                    <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-center p-6">
                     <p className="text-[var(--pk-status-red)]">
                         This server is marked local-only and can’t be deployed to cloud machines.
                     </p>
@@ -111,21 +117,27 @@ function ConfigureContent() {
                         </p>
                     )}
                     <Link href="/" className="btn-aurora">Back to Registry</Link>
-                </div>
+                    </div>
+                </>
             );
         }
 
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-center p-6">
-                <p className="text-[var(--pk-status-red)]">Failed to load configuration form.</p>
-                <Link href="/" className="btn-aurora">Go Back</Link>
-            </div>
+            <>
+                <Navbar />
+                <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-center p-6">
+                    <p className="text-[var(--pk-status-red)]">Failed to load configuration form.</p>
+                    <Link href="/" className="btn-aurora">Go Back</Link>
+                </div>
+            </>
         );
     }
 
     return (
-        <div className="min-h-screen p-6 md:p-12 max-w-2xl mx-auto space-y-8">
-            <Link href="/" className="inline-flex items-center gap-2 text-[var(--pk-text-secondary)] hover:text-white transition-colors">
+        <>
+            <Navbar />
+            <div className="min-h-screen p-6 md:p-12 max-w-2xl mx-auto space-y-8">
+                <Link href="/" className="inline-flex items-center gap-2 text-[var(--pk-text-secondary)] hover:text-white transition-colors">
                 <ArrowLeft size={16} />
                 Back to Home
             </Link>
@@ -193,7 +205,8 @@ function ConfigureContent() {
                 onSubmit={async (data) => { await mutation.mutateAsync(data); }}
                 isLoading={mutation.isPending}
             />
-        </div>
+            </div>
+        </>
     );
 }
 

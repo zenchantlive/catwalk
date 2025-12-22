@@ -2,10 +2,13 @@ import json
 import logging
 import os
 import re
+import uuid
 from typing import Optional, Dict, Any
 from openai import AsyncOpenAI
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.services.user_api_keys import get_effective_api_keys
 
 logger = logging.getLogger(__name__)
 
@@ -13,28 +16,25 @@ logger = logging.getLogger(__name__)
 class AnalysisService:
     # Initialize the service with the OpenRouter client
     def __init__(self) -> None:
-        # Get the API key from environment variables
-        api_key: Optional[str] = settings.OPENROUTER_API_KEY
-        if not api_key:
-            # Handle missing API key case (could raise error or log warning)
-            logger.warning("OPENROUTER_API_KEY not found in environment variables.")
-        
-        # Initialize the AsyncOpenAI client pointing to OpenRouter
-        self.client: AsyncOpenAI = AsyncOpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=api_key
-        )
-        
+        """Initialize the service. Client will be created per-request with user's API key."""
         # Define the model to use (Claude Haiku 4.5)
         self.model: str = "anthropic/claude-haiku-4.5"
+        ### USER RULE : NEVER EVER CHANGE THE MODEL FROM CLAUDE HAIKU 4.5 UNLESS SPECIFICALLY INSTRUCTED TO DO SO
     ### USER RULE : NEVER EVER CHANGE THE MODEL FROM CLAUDE HAIKU 4.5 UNLESS SPECIFICALLY INSTRUCTED TO DO SO
     # Analyze a GitHub repository to extract MCP configuration
-    async def analyze_repo(self, repo_url: str) -> Dict[str, Any]:
+    async def analyze_repo(
+        self, 
+        repo_url: str, 
+        user_id: uuid.UUID,
+        db: AsyncSession
+    ) -> Dict[str, Any]:
         """
         Analyzes a GitHub repository to extract MCP configuration using Claude Haiku 4.5.
         
         Args:
             repo_url: The URL of the GitHub repository to analyze.
+            user_id: The user's UUID (for fetching their OpenRouter API key)
+            db: Database session
             
         Returns:
             A dictionary containing the extracted configuration (package name, env vars, etc.).
@@ -43,6 +43,25 @@ class AnalysisService:
             Exception: If the analysis fails or returns invalid data.
         """
         from app.prompts.analysis_prompt import ANALYSIS_SYSTEM_PROMPT
+        
+        # Get user's OpenRouter API key (with fallback to system key)
+        _, openrouter_key = await get_effective_api_keys(
+            user_id=user_id,
+            db=db,
+            require_user_keys=False  # Allow fallback to system key
+        )
+        
+        if not openrouter_key:
+            raise ValueError(
+                "No OpenRouter API key available. Please add your OpenRouter API key "
+                "in Settings (/settings) to analyze GitHub repositories."
+            )
+        
+        # Create client with user's API key
+        client = AsyncOpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=openrouter_key
+        )
         
         try:
             # Construct the tools list with the web search tool
@@ -54,7 +73,7 @@ class AnalysisService:
             ]
             
             # Call the OpenRouter API
-            response = await self.client.chat.completions.create(
+            response = await client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT},
