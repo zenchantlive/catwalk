@@ -31,8 +31,8 @@ async function forwardToBackend(request: Request): Promise<Response> {
   })
 
   // DEBUG: Log token details
-  console.log("[API /settings] Token created, length:", token.length)
-  console.log("[API /settings] Token preview:", token.substring(0, 50) + "...")
+  // console.log("[API /settings] Token created, length:", token.length)
+  // console.log("[API /settings] Token preview:", token.substring(0, 50) + "...")
   console.log("[API /settings] Backend URL:", backendUrl)
   console.log("[API /settings] AUTH_SECRET set:", !!process.env.AUTH_SECRET)
   console.log("[API /settings] AUTH_JWT_ISSUER:", process.env.AUTH_JWT_ISSUER || "(not set)")
