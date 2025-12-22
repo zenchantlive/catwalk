@@ -199,11 +199,7 @@ async def create_deployment(
         await db.commit()
         raise HTTPException(status_code=400, detail={"error": "package_missing", "message": deployment.error_message})
 
-    # 3. Save Credentials and collect decrypted values for background task
-    # We decrypt here because the background task needs them, and it's easier to pass them directly
-    # than to re-query and re-decrypt in the background (though re-decrypting would be more secure).
-    # Since they are kept in memory briefly, it's acceptable for this flow.
-    credentials_data = {}
+    # 3. Save Credentials
     for service, secret in deployment_in.credentials.items():
         encrypted_val = encryption_service.encrypt(secret)
         credential = Credential(
@@ -212,7 +208,6 @@ async def create_deployment(
             deployment_id=deployment.id
         )
         db.add(credential)
-        credentials_data[service] = secret
 
     await db.commit()
     await db.refresh(deployment)
@@ -222,7 +217,6 @@ async def create_deployment(
         _process_deployment_initialization,
         deployment_id=str(deployment.id),
         package=package,
-        credentials_data=credentials_data,
         user_id=str(current_user.id)  # Pass user ID for fetching API keys
     )
 
