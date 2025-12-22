@@ -278,7 +278,7 @@ def create_test_token(user_email: str, expires_in_minutes: int = 30) -> str:
     if not settings.AUTH_SECRET:
         raise RuntimeError("AUTH_SECRET is not configured")
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     payload = {
         "sub": "test-user-id",
         "email": user_email,
