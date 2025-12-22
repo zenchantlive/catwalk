@@ -78,6 +78,7 @@ async def sync_user(
         user.name = user_data.name
         user.avatar_url = user_data.avatar_url
         user.github_id = user_data.github_id
+        logger.info("[AUDIT] user_sync action=update user_id=%s email=%s", user.id, user.email)
         logger.info("[AUDIT] user_sync action=update user_id=%s", user.id)
     else:
         # Create new user
