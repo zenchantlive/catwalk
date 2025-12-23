@@ -16,6 +16,7 @@ from app.services.credential_validator import CredentialValidator
 from app.core.config import settings
 import logging
 import json
+import uuid
 
 router = APIRouter()
 encryption_service = EncryptionService()
@@ -234,6 +235,7 @@ async def create_deployment(
         created_at=deployment.created_at,
         updated_at=deployment.updated_at,
         connection_url=connection_url,
+        access_token=deployment.access_token,
         error_message=deployment.error_message
     )
 
@@ -263,7 +265,84 @@ async def list_deployments(
             created_at=d.created_at,
             updated_at=d.updated_at,
             connection_url=connection_url,
+            access_token=d.access_token,
             error_message=d.error_message
         ))
         
     return responses
+
+
+@router.post("/{deployment_id}/rotate-token", response_model=DeploymentResponse)
+async def rotate_access_token(
+    deployment_id: str,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Rotate the access token for a deployment.
+    
+    This generates a new access token and invalidates the old one,
+    improving security if a token is compromised.
+    
+    Args:
+        deployment_id: UUID of the deployment
+        request: FastAPI request object (for building connection URL)
+        current_user: Currently authenticated user
+        db: Database session
+    
+    Returns:
+        DeploymentResponse with new access_token
+    
+    Raises:
+        HTTPException: 404 if deployment not found or user doesn't own it
+    """
+    # 1. Convert deployment_id string to UUID and fetch the deployment
+    try:
+        deployment_uuid = uuid.UUID(deployment_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid deployment ID format")
+    
+    result = await db.execute(
+        select(Deployment).where(
+            Deployment.id == deployment_uuid,
+            Deployment.user_id == current_user.id
+        )
+    )
+    deployment = result.scalar_one_or_none()
+    
+    if not deployment:
+        raise HTTPException(
+            status_code=404, 
+            detail="Deployment not found or you don't have permission to access it"
+        )
+    
+    # 2. Generate a new access token
+    old_token = deployment.access_token
+    deployment.access_token = uuid.uuid4().hex
+    
+    await db.commit()
+    await db.refresh(deployment)
+    
+    # Log the token rotation for security audit
+    logger.info(
+        f"Access token rotated for deployment {deployment.id} "
+        f"by user {current_user.id}. Old token invalidated."
+    )
+    
+    # 3. Build connection URL with new token
+    base_url = settings.PUBLIC_URL if settings.PUBLIC_URL else str(request.base_url).rstrip("/")
+    connection_url = f"{base_url}{settings.API_V1_STR}/mcp/{deployment.id}"
+    
+    # 4. Return deployment with new token
+    return DeploymentResponse(
+        id=deployment.id,
+        name=deployment.name,
+        status=deployment.status,
+        schedule_config=deployment.schedule_config,
+        created_at=deployment.created_at,
+        updated_at=deployment.updated_at,
+        connection_url=connection_url,
+        access_token=deployment.access_token,
+        error_message=deployment.error_message
+    )
