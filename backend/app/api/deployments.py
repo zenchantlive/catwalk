@@ -224,7 +224,7 @@ async def create_deployment(
     # 5. Construct Immediate Response
     base_url = settings.PUBLIC_URL if settings.PUBLIC_URL else str(request.base_url).rstrip("/")
     # Security: Include access_token in the connection URL so clients can authenticate
-    connection_url = f"{base_url}{settings.API_V1_STR}/mcp/{deployment.id}?token={deployment.access_token}"
+    connection_url = f"{base_url}{settings.API_V1_STR}/mcp/{deployment.id}"
     
     return DeploymentResponse(
         id=deployment.id,
