@@ -208,6 +208,8 @@ async def handle_mcp_endpoint(
     db: AsyncSession = Depends(get_db),
     mcp_protocol_version: Optional[str] = Header(None, alias="MCP-Protocol-Version"),
     mcp_session_id: Optional[str] = Header(None, alias="Mcp-Session-Id"),
+    token: Optional[str] = None, # Access token from query param (preferred for SSE)
+    authorization: Optional[str] = Header(None) # Access token from Bearer header
 ):
     """
     Unified MCP endpoint supporting both GET and POST methods.
@@ -216,7 +218,36 @@ async def handle_mcp_endpoint(
     POST: Sends JSON-RPC requests, notifications, or responses
 
     This endpoint implements the Streamable HTTP transport (MCP spec 2025-06-18).
+    Authentication: Requires valid 'access_token' query param or Bearer token.
     """
+
+    # 1. Authenticate Request
+    # Check query param 'token' first, then Authorization Header
+    access_token = token
+    if not access_token and authorization:
+        # Per RFC 6750, the "Bearer" scheme is case-insensitive.
+        parts = authorization.split()
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            access_token = parts[1]
+
+    deployment = await _get_deployment(db, deployment_id)
+    if not deployment:
+         return JSONResponse(
+            status_code=404,
+            content=_jsonrpc_error(None, -32001, f"Deployment not found: {deployment_id}"),
+            headers={"MCP-Protocol-Version": mcp_protocol_version or DEFAULT_PROTOCOL_VERSION},
+        )
+    
+    # Verify token matches deployment's access_token
+    # Use constant-time comparison to prevent timing attacks
+    import secrets
+    if not access_token or not deployment.access_token or not secrets.compare_digest(access_token, deployment.access_token):
+        logger.warning(f"Unauthorized access attempt for deployment {deployment_id}")
+        return JSONResponse(
+            status_code=401,
+            content=_jsonrpc_error(None, -32001, "Unauthorized: Invalid access token"),
+             headers={"MCP-Protocol-Version": mcp_protocol_version or DEFAULT_PROTOCOL_VERSION},
+        )
 
     # Validate protocol version
     protocol_version = mcp_protocol_version or DEFAULT_PROTOCOL_VERSION
@@ -266,6 +297,10 @@ async def handle_get_sse_stream(
         from the deployed MCP server subprocess and forward them to the client.
         """
         try:
+            # Send initial keep-alive to signal connection established
+            yield {
+                "comment": "connection-established"
+            }
             # Keep the connection alive with periodic comments
             # In production, this would also send real server-initiated messages
             while True:

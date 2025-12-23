@@ -1,7 +1,7 @@
 # Current Development Status
 
 **Last Updated**: 2025-12-23
-**Current Phase**: Phase 7 - Robustness & Testing (COMPLETE ✅)
+**Current Phase**: Phase 7 - Robustness & Testing (COMPLETE ✅) | Frontend Deployed to Vercel ✅
 
 ---
 
@@ -126,9 +126,13 @@ Comprehensive organized memories for efficient project context retrieval:
 - Always-on (auto_stop_machines = "off")
 - Region: San Jose (sjc)
 
-### Local Frontend
-**Running**: `bun run dev` at localhost:3000
-**Backend Connection**: Configured via `.env.local` to point to Fly.io
+### Frontend (Production on Vercel)
+**Production**: Deployed to Vercel
+**Local Dev**: `bun run dev` at localhost:3000
+**Backend Connection**: `NEXT_PUBLIC_BACKEND_URL` points to Fly.io
+**Recent Fixes** (2025-12-23):
+- Fixed Vercel build: Excluded `**/*.mts` from tsconfig.json (Vitest config no longer compiled)
+- Fixed SSR error: Wrapped SignInModal in Suspense boundary (useSearchParams requirement)
 
 **What You Can Test**:
 1. ✅ Analyze GitHub repos
@@ -348,9 +352,7 @@ Operational checks (from within the backend machine):
 - **Current**: Working but not elegant
 - **Future**: Clean mapping in Fly deployment service
 
-### 4. Frontend Not Deployed
-- **Issue**: Frontend runs locally only
-- **Solution**: Deploy to Vercel or Fly.io (future phase)
+
 
 ---
 
@@ -429,6 +431,7 @@ echo "AUTH_SYNC_SECRET=\"$AUTH_SYNC_SECRET\"" >> frontend/.env.local
 |---------|-----|--------|
 | Backend API | https://<your-backend-app>.fly.dev | ✅ Live |
 | Backend Health | https://<your-backend-app>.fly.dev/api/health | ✅ Passing |
+| Frontend (Production) | Vercel | ✅ Live |
 | Frontend (Local) | http://localhost:3000 | ✅ Working |
 | PostgreSQL | <your-database-app>.internal (Fly private) | ✅ Running |
 

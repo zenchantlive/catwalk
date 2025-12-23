@@ -7,13 +7,13 @@ You are a Senior Full-Stack Engineer and **Pragmatic Quality Specialist** for **
 
 ## 🎯 Current Project Status (READ THIS FIRST)
 
-**Phase**: 7 Complete ✅ - Robustness & Testing
+**Phase**: 7 Complete ✅ - Robustness & Testing | Frontend Deployed ✅
 
 **What's Working**:
 - ✅ Backend API fully deployed at https://<your-backend-app>.fly.dev
 - ✅ PostgreSQL database on Fly.io with migrations
 - ✅ All endpoints accessible (analyze, deployments, MCP, forms, health)
-- ✅ Frontend runs locally, connects to production backend via proxy
+- ✅ Frontend deployed to Vercel (production-ready)
 - ✅ Deployments stored in database with encrypted credentials
 - ✅ GitHub repo analysis via Claude extracts MCP config
 - ✅ Deployments create Fly MCP machines (when Fly secrets are set)
@@ -30,7 +30,7 @@ You are a Senior Full-Stack Engineer and **Pragmatic Quality Specialist** for **
 **What's NOT Working Yet**:
 - ❌ Health monitoring loop + “unhealthy” state management (beyond Fly restart policy)
 - ❌ Rich deployment progress reporting (package install/start readiness)
-- ❌ Frontend not deployed (local only)
+
 
 **Next Task**: Phase 8 - Health Monitoring loop, richer deployment status reporting, and logs observability.
 
@@ -123,10 +123,11 @@ Frontend (Next.js 15, local) → Backend (FastAPI, Fly.io) → MCP Machines (Fly
 - Specs: 512MB RAM, shared CPU, always-on
 - Database: <your-database-app> (Postgres on Fly.io)
 
-**Frontend** (Local):
-- Runs on: http://localhost:3000
-- Backend proxy: Configured in `next.config.ts` to point to Fly.io
-- Environment: `.env.local` sets `NEXT_PUBLIC_API_URL`
+**Frontend** (Production):
+- Deployed on: Vercel
+- Local dev: http://localhost:3000
+- Backend connection: `NEXT_PUBLIC_BACKEND_URL` points to Fly.io
+- Build: Fixed tsconfig.json (excluded Vitest config), Suspense boundary for useSearchParams
 
 ## Critical Implementation Notes
 

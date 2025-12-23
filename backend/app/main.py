@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
-from app.api import health, analyze, forms, deployments, mcp, mcp_streamable, registry, auth, settings
+from app.api import health, analyze, forms, deployments, mcp, mcp_streamable, registry, auth, settings as settings_router
 from app.services.mcp_process_manager import stop_all_servers
 import logging
 
@@ -37,26 +37,23 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 # Configure CORS
-# Allow all origins for MCP SSE connections from Claude Desktop/Web
-# Claude's infrastructure connects from various Google Cloud IPs
-# In production, you may want to restrict this to specific origins
-origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+from app.core.config import settings
 
+# Allow all origins for dev, but restricted list for production/staging
+# MCP clients (like Claude Desktop) communicate via SSE/HTTP directly,
+# but browsers are restricted by CORS.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for MCP client compatibility
+    allow_origins=settings.BACKEND_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],  # Expose all headers for SSE
+    expose_headers=["*"],
 )
 
 app.include_router(health.router, prefix="/api/health", tags=["health"])
 app.include_router(auth.router, prefix="/api", tags=["auth"])
-app.include_router(settings.router, prefix="/api", tags=["settings"])
+app.include_router(settings_router.router, prefix="/api", tags=["settings"])
 app.include_router(analyze.router, prefix="/api/analyze", tags=["analysis"])
 app.include_router(forms.router, prefix="/api/forms", tags=["forms"])
 app.include_router(deployments.router, prefix="/api/deployments", tags=["deployments"])

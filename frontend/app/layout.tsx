@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ReactQueryProvider from "./providers";
@@ -32,7 +33,9 @@ export default function RootLayout({
       >
         <ReactQueryProvider>
           {children}
-          <SignInModal />
+          <Suspense fallback={null}>
+            <SignInModal />
+          </Suspense>
           <Toaster />
         </ReactQueryProvider>
       </body>

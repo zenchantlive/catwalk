@@ -43,6 +43,7 @@ export interface Deployment {
     name: string;
     status: string;
     connection_url: string;
+    access_token: string;  // Secure MCP connection token
     created_at: string;
     error_message?: string;
 }
@@ -70,6 +71,20 @@ export async function getDeployments(): Promise<Deployment[]> {
 
     if (!res.ok) {
         throw new Error("Failed to fetch deployments");
+    }
+
+    return res.json();
+}
+
+export async function rotateDeploymentToken(deploymentId: string): Promise<Deployment> {
+    const res = await fetch(`/api/deployments/${deploymentId}/rotate-token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+    });
+
+    if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.detail || "Failed to rotate access token");
     }
 
     return res.json();

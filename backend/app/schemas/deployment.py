@@ -18,6 +18,7 @@ class DeploymentResponse(DeploymentBase):
     created_at: datetime
     updated_at: datetime
     connection_url: str  # Computed field
+    access_token: str    # Secure connection token
     error_message: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
