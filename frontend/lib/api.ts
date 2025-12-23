@@ -1,16 +1,28 @@
-const API_BASE = "http://localhost:8000";
+// Backend API is currently prefix-routed via Next.js rewrites or absolute URLs
 
-export async function analyzeRepo(repoUrl: string) {
+export async function analyzeRepo(repoUrl: string, force: boolean = false) {
     const res = await fetch(`/api/analyze`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
         },
-        body: JSON.stringify({ repo_url: repoUrl }),
+        body: JSON.stringify({ repo_url: repoUrl, force }),
     });
 
     if (!res.ok) {
         throw new Error("Failed to analyze repository");
+    }
+
+    return res.json();
+}
+
+export async function clearAnalysisCache(repoUrl: string) {
+    const res = await fetch(`/api/analyze/cache?repo_url=${encodeURIComponent(repoUrl)}`, {
+        method: "DELETE",
+    });
+
+    if (!res.ok) {
+        throw new Error("Failed to clear cache");
     }
 
     return res.json();
@@ -38,7 +50,7 @@ export interface Deployment {
 export async function createDeployment(data: {
     name: string;
     credentials: Record<string, string>;
-    schedule_config?: Record<string, any>;
+    schedule_config?: Record<string, unknown>;
 }): Promise<Deployment> {
     const res = await fetch("/api/deployments", {
         method: "POST",
@@ -84,12 +96,12 @@ export const registry = {
     search: async (query?: string): Promise<RegistryServer[]> => {
         const params = new URLSearchParams();
         if (query) params.append("q", query);
-        
+
         const res = await fetch(`/api/registry/search?${params.toString()}`);
         if (!res.ok) throw new Error("Failed to search registry");
         return res.json();
     },
-    
+
     get: async (id: string): Promise<RegistryServer> => {
         const res = await fetch(`/api/registry/${id}`);
         if (!res.ok) throw new Error("Failed to get server details");
@@ -100,8 +112,12 @@ export const registry = {
 
 export async function getFormSchema(serviceType: string, repoUrl: string) {
     if (serviceType === "custom" && repoUrl) {
-        const analysis = await analyzeRepo(repoUrl);
-        return analysis.data;
+        // Call the forms endpoint which transforms analysis into FormSchema format
+        const res = await fetch(`/api/forms/generate/${serviceType}?repo_url=${encodeURIComponent(repoUrl)}`);
+        if (!res.ok) {
+            throw new Error("Failed to generate form schema");
+        }
+        return res.json();
     }
     return null;
 }

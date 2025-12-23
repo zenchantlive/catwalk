@@ -217,6 +217,7 @@ async def create_deployment(
         _process_deployment_initialization,
         deployment_id=str(deployment.id),
         package=package,
+        credentials_data=deployment_in.credentials,
         user_id=str(current_user.id)  # Pass user ID for fetching API keys
     )
 

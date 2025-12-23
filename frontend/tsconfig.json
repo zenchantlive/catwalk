@@ -42,6 +42,9 @@
     "**/*.mts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "vitest.config.mts",
+    "**/*.test.ts",
+    "**/*.test.tsx"
   ]
 }

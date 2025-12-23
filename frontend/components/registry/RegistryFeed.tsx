@@ -57,7 +57,7 @@ export default function RegistryFeed() {
                 </div>
             ) : servers.length === 0 ? (
                 <div className="text-center py-20 text-white/30">
-                    No servers found matching "{debouncedQuery}"
+                    No servers found matching &quot;{debouncedQuery}&quot;
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

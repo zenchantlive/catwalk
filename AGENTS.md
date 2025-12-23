@@ -7,7 +7,7 @@ You are a Senior Full-Stack Engineer and **Pragmatic Quality Specialist** for **
 
 ## 🎯 Current Project Status (READ THIS FIRST)
 
-**Phase**: 6 Working ✅ - MCP Machines + Streamable HTTP Bridge
+**Phase**: 7 Complete ✅ - Robustness & Testing
 
 **What's Working**:
 - ✅ Backend API fully deployed at https://<your-backend-app>.fly.dev
@@ -21,8 +21,9 @@ You are a Senior Full-Stack Engineer and **Pragmatic Quality Specialist** for **
 - ✅ RegistryService hardened (concurrency safe, timeouts)
 - ✅ User Settings Page operational (Fly token, OpenRouter key management)
 
-- ✅ Glassmorphic Sign-In flow (GitHub Auth) integrated
 - ✅ Security Hardened (Secret masking, Audit logs, Secured internal endpoints)
+- ✅ Comprehensive Test Suite (Integration + Unit)
+- ✅ Robust Analysis Service (Claude Haiku 4.5 + regex parsing)
 
 
 
@@ -31,13 +32,14 @@ You are a Senior Full-Stack Engineer and **Pragmatic Quality Specialist** for **
 - ❌ Rich deployment progress reporting (package install/start readiness)
 - ❌ Frontend not deployed (local only)
 
-**Next Task**: Harden “any GitHub repo” reliability (analysis→`mcp_config.package` validation), health monitoring, and UX polish
+**Next Task**: Phase 8 - Health Monitoring loop, richer deployment status reporting, and logs observability.
 
 **Critical Context Files**:
 1. `catwalk-live/context/CURRENT_STATUS.md` - Detailed status, lessons learned, next steps
-2. `CLAUDE.md` - Deployment pitfalls, troubleshooting, architecture
-3. `context/ARCHITECTURE.md` - System design
-4. `remote-mcp-pilot/deploy/` - Working Fly.io deployment reference
+2. `backend/tests/api_surface.md` - Complete API inventory
+3. `CLAUDE.md` - Deployment pitfalls, troubleshooting, architecture
+4. `context/ARCHITECTURE.md` - System design
+5. `remote-mcp-pilot/deploy/` - Working Fly.io deployment reference
 
 ## Tools & Commands
 

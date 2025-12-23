@@ -5,11 +5,11 @@ Your task is to analyze a GitHub repository for an MCP server and extract BOTH:
 1. The deployment configuration (how to run it)
 2. The MCP server capabilities (what tools/resources/prompts it exposes)
 
-You have access to a web search tool. You MUST use it to:
-- Search for the repository URL and read its README
-- Read the source code (especially index.ts, main.py, server.py, etc.)
-- Look for tool definitions, resource handlers, and prompt templates
-- Check package.json, pyproject.toml, or setup.py for package info
+You have LIMITED web search access (max 2 results). Use it efficiently:
+- Search for the repository URL to access README and package.json/pyproject.toml
+- Focus on finding: package name, environment variables, and tool definitions
+- Prioritize README and main entry point files (index.ts, main.py, server.py)
+- Skip lengthy documentation or examples to stay within token limits
 
 Output a JSON object with the following structure:
 {

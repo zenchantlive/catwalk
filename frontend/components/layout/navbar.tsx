@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useSession, signOut } from "next-auth/react"
+import Image from "next/image"
 import { Menu, X, Settings, LogOut, User } from "lucide-react"
 import {
   DropdownMenu,
@@ -83,9 +84,11 @@ export function Navbar() {
                         className="flex items-center space-x-2 rounded-lg px-3 py-2 hover:bg-white/10"
                       >
                         {session.user.image ? (
-                          <img
+                          <Image
                             src={session.user.image}
                             alt={session.user.name || "User"}
+                            width={32}
+                            height={32}
                             className="h-8 w-8 rounded-full border-2 border-white/10"
                           />
                         ) : (
@@ -155,9 +158,11 @@ export function Navbar() {
             {/* User Info */}
             <div className="flex items-center space-x-3 rounded-lg bg-white/5 p-3 mb-3">
               {session.user.image ? (
-                <img
+                <Image
                   src={session.user.image}
                   alt={session.user.name || "User"}
+                  width={40}
+                  height={40}
                   className="h-10 w-10 rounded-full border-2 border-white/10"
                 />
               ) : (

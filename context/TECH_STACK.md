@@ -21,9 +21,10 @@ High-level flow:
 - **DB**: PostgreSQL (Fly.io) + SQLAlchemy 2.0 async
 - **Driver**: psycopg 3 (`psycopg[binary]`) with `postgresql+psycopg://` URLs
 - **Migrations**: Alembic (Fly runs migrations via `release_command`)
-- **Claude analysis**: OpenRouter via `openai` SDK (`AsyncOpenAI(base_url="https://openrouter.ai/api/v1")`)
-- **HTTP**: `httpx` for Fly Machines API + MCP machine forwarding
+- **Claude analysis**: OpenRouter via `openai` SDK (Claude Haiku 4.5)
+- **HTTP**: `httpx` for Fly Machines API + MCP machine forwarding + Testing
 - **Credential storage**: Fernet (`cryptography`) encryption at rest
+- **Testing**: `pytest`, `pytest-asyncio`, `pytest-env`
 
 ## Infrastructure (Fly.io)
 

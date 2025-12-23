@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+
 import { useSearchParams, useRouter } from "next/navigation"
 import { signIn } from "next-auth/react"
 import { Github } from "lucide-react"
@@ -17,19 +17,10 @@ import { Button } from "@/components/ui/button"
 export function SignInModal() {
     const searchParams = useSearchParams()
     const router = useRouter()
-    const [isOpen, setIsOpen] = useState(false)
-
-    useEffect(() => {
-        // Check if ?signin=true is present
-        if (searchParams.get("signin") === "true") {
-            setIsOpen(true)
-        } else {
-            setIsOpen(false)
-        }
-    }, [searchParams])
+    // Derive state directly from searchParams instead of using useEffect
+    const isOpen = searchParams.get("signin") === "true"
 
     const handleOpenChange = (open: boolean) => {
-        setIsOpen(open)
         if (!open) {
             // Remove query param when closing
             const url = new URL(window.location.href)

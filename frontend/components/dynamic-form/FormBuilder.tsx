@@ -8,16 +8,7 @@ import { useState } from "react";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import clsx from "clsx";
 
-// Types corresponding to our backend schema
-interface FormField {
-    name: string;
-    label: string;
-    type: "text" | "password" | "select" | "number" | "checkbox";
-    required: boolean;
-    default?: string | number | boolean;
-    options?: string[];
-    description?: string;
-}
+import { generateZodSchema, type FormField } from "./generate-zod-schema";
 
 interface FormSchema {
     title: string;
@@ -34,49 +25,8 @@ interface FormBuilderProps {
 export default function FormBuilder({ schema, onSubmit, isLoading }: FormBuilderProps) {
     const [showPassword, setShowPassword] = useState<Record<string, boolean>>({});
 
-    if (!schema?.fields) {
-        return (
-            <div className="card-glass p-6 w-full max-w-lg mx-auto text-center">
-                <p className="text-[var(--pk-status-red)]">Invalid form schema: Missing fields definition.</p>
-            </div>
-        );
-    }
-
-    // Dynamically generate Zod schema based on props
-    const generateZodSchema = (fields: FormField[]) => {
-        const shape: Record<string, z.ZodTypeAny> = {};
-
-        fields.forEach((field) => {
-            let validator: z.ZodTypeAny;
-
-            switch (field.type) {
-                case "number":
-                    validator = z.coerce.number();
-                    if (field.required) {
-                        validator = (validator as z.ZodNumber).min(1, "Required");
-                    }
-                    break;
-                case "checkbox":
-                    validator = z.boolean();
-                    break;
-                default:
-                    validator = z.string();
-                    if (field.required) {
-                        validator = (validator as z.ZodString).min(1, "Required");
-                    }
-            }
-
-            if (!field.required) {
-                validator = validator.optional();
-            }
-
-            shape[field.name] = validator;
-        });
-
-        return z.object(shape);
-    };
-
-    const zodSchema = generateZodSchema(schema.fields);
+    const fields = schema?.fields || [];
+    const zodSchema = generateZodSchema(fields);
     type FormData = z.infer<typeof zodSchema>;
 
     const {
@@ -85,7 +35,7 @@ export default function FormBuilder({ schema, onSubmit, isLoading }: FormBuilder
         formState: { errors },
     } = useForm<FormData>({
         resolver: zodResolver(zodSchema),
-        defaultValues: schema.fields.reduce((acc, field) => {
+        defaultValues: fields.reduce((acc, field) => {
             if (field.default !== undefined) acc[field.name] = field.default;
             return acc;
         }, {} as Record<string, unknown>),
@@ -94,6 +44,14 @@ export default function FormBuilder({ schema, onSubmit, isLoading }: FormBuilder
     const togglePassword = (fieldName: string) => {
         setShowPassword((prev) => ({ ...prev, [fieldName]: !prev[fieldName] }));
     };
+
+    if (!schema?.fields) {
+        return (
+            <div className="card-glass p-6 w-full max-w-lg mx-auto text-center">
+                <p className="text-[var(--pk-status-red)]">Invalid form schema: Missing fields definition.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="card-glass p-6 md:p-8 w-full max-w-lg mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
