@@ -50,7 +50,7 @@ class PackageValidator:
         # Allow alphanumeric, underscore, hyphen, @, /, and period.
         # This prevents command injection (though npx/pip args are relatively safe)
         import re
-        if not re.match(r"^[a-zA-Z0-9@/._-]+$", package):
+        if not re.match(r"^(?:@[a-z0-9-*~][a-z0-9-*._~]*/)?[a-z0-9-~][a-z0-9-._~]*$", package):
              error_msg = f"Invalid package name format: '{package}'"
              logger.warning(error_msg)
              return {
