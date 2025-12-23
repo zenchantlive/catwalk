@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from app.services.analysis import AnalysisService # type: ignore
 from app.services.cache import CacheService # type: ignore
@@ -109,7 +109,7 @@ async def analyze_repository(
 
 @router.delete("/cache")
 async def clear_analysis_cache(
-    repo_url: str,
+    repo_url: str = Query(..., description="The GitHub repository URL to clear from cache"),
     current_user: User = Depends(get_current_user),
     cache_service: CacheService = Depends(get_cache_service),
     db: AsyncSession = Depends(get_db)
@@ -119,9 +119,6 @@ async def clear_analysis_cache(
     
     This is useful when you want to force a fresh analysis without
     waiting for the cache to expire (1 week).
-    
-    Query params:
-        repo_url: The GitHub repository URL to clear from cache
     """
     normalized_url = normalize_github_url(repo_url)
     logger.info(f"Clearing cache for {normalized_url} (requested by user {current_user.id})")
@@ -145,4 +142,4 @@ async def clear_analysis_cache(
     except Exception as e:
         logger.error(f"Error clearing cache for {normalized_url}: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to clear cache: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to clear cache due to an internal error")

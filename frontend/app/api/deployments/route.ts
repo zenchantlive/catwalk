@@ -8,7 +8,7 @@ const backendUrl =
 
 async function forwardToBackend(request: Request): Promise<Response> {
   const session = await auth()
-  
+
   if (!session?.user?.email) {
     console.error("[API /deployments] Unauthorized - session missing or incomplete")
     return NextResponse.json({ detail: "Unauthorized" }, { status: 401 })
@@ -34,14 +34,8 @@ async function forwardToBackend(request: Request): Promise<Response> {
     cache: "no-store",
   })
 
-  console.log("[API /deployments] Backend response status:", backendResponse.status)
   if (!backendResponse.ok) {
-    const errorText = await backendResponse.text()
-    console.error("[API /deployments] Backend error:", errorText)
-    return new Response(errorText, {
-      status: backendResponse.status,
-      headers: backendResponse.headers,
-    })
+    return backendResponse
   }
 
   return backendResponse

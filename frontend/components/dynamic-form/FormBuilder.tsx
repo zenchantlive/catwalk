@@ -16,7 +16,6 @@ interface FormSchema {
     fields: FormField[];
 }
 
-
 interface FormBuilderProps {
     schema: FormSchema;
     onSubmit: (data: Record<string, unknown>) => Promise<void>;
@@ -42,6 +41,10 @@ export default function FormBuilder({ schema, onSubmit, isLoading }: FormBuilder
         }, {} as Record<string, unknown>),
     });
 
+    const togglePassword = (fieldName: string) => {
+        setShowPassword((prev) => ({ ...prev, [fieldName]: !prev[fieldName] }));
+    };
+
     if (!schema?.fields) {
         return (
             <div className="card-glass p-6 w-full max-w-lg mx-auto text-center">
@@ -49,11 +52,6 @@ export default function FormBuilder({ schema, onSubmit, isLoading }: FormBuilder
             </div>
         );
     }
-
-
-    const togglePassword = (fieldName: string) => {
-        setShowPassword((prev) => ({ ...prev, [fieldName]: !prev[fieldName] }));
-    };
 
     return (
         <div className="card-glass p-6 md:p-8 w-full max-w-lg mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">

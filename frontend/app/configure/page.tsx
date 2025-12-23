@@ -72,9 +72,14 @@ function ConfigureContent() {
     const mutation = useMutation({
         mutationFn: async (formData: Record<string, unknown>) => {
             // Segregate name from credentials
-            const name = formData.name as string;
-            const credentials = { ...formData } as Record<string, string>;
-            delete credentials.name;
+            const name = typeof formData.name === "string" ? formData.name : "Untitled Deployment";
+
+            const credentials: Record<string, string> = {};
+            for (const [key, value] of Object.entries(formData)) {
+                if (key !== "name" && typeof value === "string") {
+                    credentials[key] = value;
+                }
+            }
 
             // Build schedule_config with MCP server configuration from schema
             const schedule_config = schema?.mcp_config

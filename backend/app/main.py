@@ -31,7 +31,6 @@ app = FastAPI(
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     logger.error(f"[VALIDATION ERROR] on {request.url}: {exc.errors()}")
-    logger.error(f"[VALIDATION ERROR] Body: {await request.body()}")
     return JSONResponse(
         status_code=422,
         content={"detail": exc.errors()},

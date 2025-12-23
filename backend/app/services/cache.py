@@ -42,12 +42,11 @@ class CacheService:
             
             # Ensure comparability (especially for SQLite in tests)
             updated_at = cache_entry.updated_at
-            comparison_ago = one_week_ago
             if updated_at.tzinfo is None:
-                comparison_ago = one_week_ago.replace(tzinfo=None)
+                updated_at = updated_at.replace(tzinfo=timezone.utc)
 
-            if updated_at < comparison_ago:
-                logger.info(f"Cache expired for {repo_url} (age: {datetime.now(timezone.utc) - updated_at if updated_at.tzinfo else datetime.now() - updated_at})")
+            if updated_at < one_week_ago:
+                logger.info(f"Cache expired for {repo_url} (age: {datetime.now(timezone.utc) - updated_at})")
                 return None
 
             logger.info(f"Cache hit for {repo_url}")

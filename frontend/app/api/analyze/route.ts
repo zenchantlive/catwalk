@@ -9,13 +9,7 @@ const backendUrl =
 async function forwardToBackend(request: Request): Promise<Response> {
   const session = await auth()
 
-  // DEBUG: Log session
-  console.log("[API /analyze] Session:", {
-    hasSession: !!session,
-    hasUser: !!session?.user,
-    email: session?.user?.email,
-  })
-
+  // Session verification log
   if (!session?.user?.email) {
     console.error("[API /analyze] Unauthorized - session missing or incomplete")
     return NextResponse.json({ detail: "Unauthorized" }, { status: 401 })
@@ -28,19 +22,15 @@ async function forwardToBackend(request: Request): Promise<Response> {
     image: session.user.image,
   })
 
-  // DEBUG: Read and log request body
+  // Read request body for forwarding
   const bodyText = request.method === "GET" || request.method === "DELETE" ? undefined : await request.text()
-  console.log("[API /analyze] Request body:", bodyText)
-  console.log("[API /analyze] Request method:", request.method)
-  console.log("[API /analyze] Backend URL:", backendUrl)
 
-  // DEBUG: Validate JSON before sending
+  // Basic validation without logging body
   if (bodyText) {
     try {
-      const parsed = JSON.parse(bodyText)
-      console.log("[API /analyze] Parsed body:", parsed)
-    } catch (e) {
-      console.error("[API /analyze] Invalid JSON in request body:", e)
+      JSON.parse(bodyText)
+    } catch {
+      console.error("[API /analyze] Invalid JSON in request body")
       return NextResponse.json({
         detail: "Invalid JSON in request body"
       }, { status: 400 })
@@ -49,8 +39,6 @@ async function forwardToBackend(request: Request): Promise<Response> {
 
   const url = new URL(request.url)
   const backendEndpoint = `${backendUrl}/api/analyze${url.search}`
-
-  console.log("[API /analyze] Forwarding to:", backendEndpoint)
 
   const backendResponse = await fetch(backendEndpoint, {
     method: request.method,
