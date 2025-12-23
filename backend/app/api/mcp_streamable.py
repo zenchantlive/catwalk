@@ -225,10 +225,10 @@ async def handle_mcp_endpoint(
     # Check query param 'token' first, then Authorization Header
     access_token = token
     if not access_token and authorization:
-        if authorization.startswith("Bearer "):
-            access_token = authorization.replace("Bearer ", "")
-        else:
-            access_token = authorization
+        # Per RFC 6750, the "Bearer" scheme is case-insensitive.
+        parts = authorization.split()
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            access_token = parts[1]
 
     deployment = await _get_deployment(db, deployment_id)
     if not deployment:
