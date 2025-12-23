@@ -45,6 +45,15 @@ class Deployment(Base):
 
     # Error message if the deployment failed
     error_message: Mapped[str] = mapped_column(String, nullable=True)
+
+    # Secure access token for MCP connection (CWE-284 fix)
+    # Automatically generated on creation
+    access_token: Mapped[str] = mapped_column(
+        String, 
+        nullable=False, 
+        unique=True,
+        default=lambda: uuid.uuid4().hex
+    )
     
     # Timestamp when the record was created, defaults to UTC now
     created_at: Mapped[datetime] = mapped_column(

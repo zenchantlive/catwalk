@@ -223,7 +223,8 @@ async def create_deployment(
 
     # 5. Construct Immediate Response
     base_url = settings.PUBLIC_URL if settings.PUBLIC_URL else str(request.base_url).rstrip("/")
-    connection_url = f"{base_url}{settings.API_V1_STR}/mcp/{deployment.id}"
+    # Security: Include access_token in the connection URL so clients can authenticate
+    connection_url = f"{base_url}{settings.API_V1_STR}/mcp/{deployment.id}?token={deployment.access_token}"
     
     return DeploymentResponse(
         id=deployment.id,
@@ -252,7 +253,8 @@ async def list_deployments(
 
     for d in deployments:
         # New MCP Streamable HTTP transport uses single unified endpoint (no /sse suffix)
-        connection_url = f"{base_url}{settings.API_V1_STR}/mcp/{d.id}"
+        # Security: Include access_token in the connection URL
+        connection_url = f"{base_url}{settings.API_V1_STR}/mcp/{d.id}?token={d.access_token}"
         responses.append(DeploymentResponse(
             id=d.id,
             name=d.name,

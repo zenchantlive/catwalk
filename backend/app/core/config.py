@@ -64,6 +64,11 @@ class Settings(BaseSettings):
     # Public URL for generating connection strings (e.g. https://xyz.ngrok-free.app)
     PUBLIC_URL: Optional[str] = None
 
+    # CORS Configuration
+    # List of allowed origins for CORS. In production, this should restricted.
+    # Defaults to allowing all for dev, but validation enforces restrictions in production.
+    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+
     # Fly.io Configuration
     # Token to authenticate with Fly Machines API
     FLY_API_TOKEN: Optional[str] = None

@@ -46,6 +46,20 @@ class PackageValidator:
                 "version": None
             }
 
+        # Security: Validate package name format strictly
+        # Allow alphanumeric, underscore, hyphen, @, /, and period.
+        # This prevents command injection (though npx/pip args are relatively safe)
+        import re
+        if not re.match(r"^[a-zA-Z0-9@/._-]+$", package):
+             error_msg = f"Invalid package name format: '{package}'"
+             logger.warning(error_msg)
+             return {
+                 "valid": False,
+                 "error": error_msg,
+                 "version": None
+             }
+
+
         # URL encode scoped packages: @user/package → @user%2Fpackage
         # This is required for npm registry API URLs
         encoded_package = package.replace("/", "%2F")
