@@ -1,3 +1,8 @@
+## 2025-12-23 [*](https://github.com/zenchantlive/catwalk/pull/13)
+
+### Changed
+- Hardened MCP deployments with access-token authentication, configurable CORS, stricter input validation, and expanded security tests; also resolved build stability issues.
+
 ## 2025-12-23 [*](https://github.com/zenchantlive/catwalk/pull/12)
 
 ### Added
