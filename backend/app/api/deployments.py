@@ -254,7 +254,7 @@ async def list_deployments(
     for d in deployments:
         # New MCP Streamable HTTP transport uses single unified endpoint (no /sse suffix)
         # Security: Include access_token in the connection URL
-        connection_url = f"{base_url}{settings.API_V1_STR}/mcp/{d.id}?token={d.access_token}"
+        connection_url = f"{base_url}{settings.API_V1_STR}/mcp/{d.id}"
         responses.append(DeploymentResponse(
             id=d.id,
             name=d.name,
