@@ -55,7 +55,6 @@ async function forwardToBackend(request: Request): Promise<Response> {
   // If 422, log response body for debugging
   if (backendResponse.status === 422) {
     const errorText = await backendResponse.text()
-    console.error("[API /analyze] 422 error details:", errorText)
     return new Response(errorText, {
       status: 422,
       headers: backendResponse.headers,

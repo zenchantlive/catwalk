@@ -67,7 +67,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       return session
     },
-    async signIn({ user, account: _account, profile }) {
+    async signIn({ user, profile }) {
       // Sync user to backend after successful sign-in
       try {
         const syncSecret = process.env.AUTH_SYNC_SECRET

@@ -47,17 +47,17 @@ async def analyze_repository(
     Requires authentication - uses user's OpenRouter API key.
     """
     # DEBUG: Log incoming request
-    logger.info(f"[ANALYZE] Received request from user {current_user.id}")
-    logger.info(f"[ANALYZE] Request data: repo_url={request.repo_url}, force={request.force}")
+    logger.debug(f"[ANALYZE] Received request from user {current_user.id}")
+    logger.debug(f"[ANALYZE] Request data: repo_url={request.repo_url}, force={request.force}")
 
     # CRITICAL: Normalize the URL to ensure consistent cache keys
     # This prevents cache misses due to trailing slashes, case differences, etc.
     raw_url = request.repo_url
     normalized_url = normalize_github_url(raw_url)
 
-    logger.info(f"Analyzing repository: {raw_url} for user {current_user.id}")
+    logger.debug(f"Analyzing repository: {raw_url} for user {current_user.id}")
     if raw_url != normalized_url:
-        logger.info(f"  Normalized to: {normalized_url}")
+        logger.debug(f"  Normalized to: {normalized_url}")
 
     # Check cache first (using normalized URL), unless force=True
     cached_result = None
@@ -116,6 +116,9 @@ async def clear_analysis_cache(
 ):
     """
     Clear the cached analysis for a specific repository URL.
+    
+    NOTE: The cache is global and keyed by normalized repository URL.
+    This action affects all users who might analyze this repository.
     
     This is useful when you want to force a fresh analysis without
     waiting for the cache to expire (1 week).
