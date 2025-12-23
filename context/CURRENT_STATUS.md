@@ -71,6 +71,7 @@
   - Secrets masked in API responses (never return plaintext)
   - Internal `/auth/sync-user` endpoint secured with `X-Auth-Secret`
   - Audit logging enabled for critical actions
+  - **Access token rotation** (2025-12-23): `POST /deployments/{id}/rotate-token` invalidates old tokens
 
 ### PR #10: Security & Maintainability Hardening (2025-12-21 - COMPLETED! ✅)
 - ✅ **Fixed JWT secret mismatch** - Changed from NEXTAUTH_SECRET to AUTH_SECRET
@@ -117,6 +118,7 @@ Comprehensive organized memories for efficient project context retrieval:
 - `GET /api/health` - Health checks (returns `{"status": "healthy"}`)
 - `POST /api/analyze` - GitHub repo analysis via Claude
 - `GET/POST /api/deployments` - Create and list deployments
+- `POST /api/deployments/{id}/rotate-token` - Rotate deployment access tokens (NEW!)
 - `GET/POST /api/mcp/{deployment_id}` - MCP Streamable HTTP endpoints
 - `GET /api/forms/generate/{service}` - Dynamic credential forms
 

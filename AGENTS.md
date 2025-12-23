@@ -21,7 +21,7 @@ You are a Senior Full-Stack Engineer and **Pragmatic Quality Specialist** for **
 - ✅ RegistryService hardened (concurrency safe, timeouts)
 - ✅ User Settings Page operational (Fly token, OpenRouter key management)
 
-- ✅ Security Hardened (Secret masking, Audit logs, Secured internal endpoints)
+- ✅ Security Hardened (Secret masking, Audit logs, Token rotation, Secured internal endpoints)
 - ✅ Comprehensive Test Suite (Integration + Unit)
 - ✅ Robust Analysis Service (Claude Haiku 4.5 + regex parsing)
 
@@ -173,7 +173,31 @@ CMD ["./docker-entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
 ```
 
-### 5. Authentication Setup (CRITICAL!)
+### 5. Access Token Rotation (Security Best Practice)
+
+**Feature**: Deployment access tokens can be rotated to invalidate compromised tokens
+
+**Endpoint**: `POST /api/deployments/{deployment_id}/rotate-token`
+- Generates new UUID4.hex token
+- Invalidates old token immediately
+- Returns updated deployment with new token
+- Logs rotation event for security audit
+
+**Frontend Usage**:
+```typescript
+import { rotateDeploymentToken } from '@/lib/api'
+
+const updated = await rotateDeploymentToken(deploymentId)
+console.log('New token:', updated.access_token)
+```
+
+**Security Benefits**:
+- Mitigates token compromise/leakage
+- User-controlled token lifecycle
+- Audit trail for security monitoring
+- No service downtime during rotation
+
+### 6. Authentication Setup (CRITICAL!)
 
 **Problem**: Missing authentication secrets prevent user sync to database, causing 401 errors on all authenticated endpoints.
 
