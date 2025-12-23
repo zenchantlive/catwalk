@@ -1,5 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from app.api import health, analyze, forms, deployments, mcp, mcp_streamable, registry, auth, settings
 from app.services.mcp_process_manager import stop_all_servers
@@ -24,6 +26,16 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan
 )
+
+# Add validation error handler to log 422 errors
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    logger.error(f"[VALIDATION ERROR] on {request.url}: {exc.errors()}")
+    logger.error(f"[VALIDATION ERROR] Body: {await request.body()}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors()},
+    )
 
 # Configure CORS
 # Allow all origins for MCP SSE connections from Claude Desktop/Web

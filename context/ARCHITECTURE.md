@@ -51,11 +51,11 @@ POST /api/analyze {repo_url}
 Backend checks cache (AnalysisCache table)
   ↓ (cache miss)
 Claude API called with:
-  - Model: claude-haiku-4-5-20251001
-  - Tools: [web_search_20250305]
+  - Model: anthropic/claude-haiku-4.5
+  - Plugins: [web] with `max_results=2`
   - Prompt: "Analyze this MCP repo and extract deployment config"
   ↓
-Claude fetches repo via web search
+Claude fetches repo via web search plugin
 Claude parses README, package.json
 Claude extracts: package, env_vars, tools, resources, prompts
   ↓
@@ -212,17 +212,16 @@ GET    /api/health               # Health check
 **Claude API Configuration:**
 ```python
 client.messages.create(
-    model="claude-haiku-4-5-20251001",
+    model="anthropic/claude-haiku-4.5",
     max_tokens=2000,
     temperature=0,  # Deterministic for configs
     messages=[{
         "role": "user",
         "content": analysis_prompt
     }],
-    tools=[{
-        "type": "web_search_20250305",
-        "name": "web_search",
-        "max_uses": 5
+    plugins=[{
+        "id": "web",
+        "max_results": 2
     }]
 )
 ```
@@ -418,7 +417,10 @@ CREATE TABLE analysis_cache (
 - Failed auth attempts tracked
 - Suspicious patterns alert (future: Sentry integration)
 
-**[ASSUMPTION: For MVP, no authentication. Phase 8 adds OAuth. Until then, platform is private (only you have access).]**
+**Layer 5: Monitoring**
+- All API requests logged (without sensitive data)
+- Failed auth attempts tracked
+- Health monitoring loop (Phase 8)
 
 ## Cost Tracking
 

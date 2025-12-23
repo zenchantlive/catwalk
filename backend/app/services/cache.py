@@ -39,12 +39,18 @@ class CacheService:
 
             # Check if cache is older than 1 week
             one_week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+            
+            # Ensure comparability (especially for SQLite in tests)
+            updated_at = cache_entry.updated_at
+            comparison_ago = one_week_ago
+            if updated_at.tzinfo is None:
+                comparison_ago = one_week_ago.replace(tzinfo=None)
 
-            if cache_entry.updated_at < one_week_ago:
-                logger.info(f"Cache expired for {repo_url} (age: {datetime.now(timezone.utc) - cache_entry.updated_at})")
+            if updated_at < comparison_ago:
+                logger.info(f"Cache expired for {repo_url} (age: {datetime.now(timezone.utc) - updated_at if updated_at.tzinfo else datetime.now() - updated_at})")
                 return None
 
-            logger.info(f"Cache hit for {repo_url} (age: {datetime.now(timezone.utc) - cache_entry.updated_at})")
+            logger.info(f"Cache hit for {repo_url}")
             return cache_entry.data
 
         except Exception as e:

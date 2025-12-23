@@ -15,8 +15,8 @@ export default function Home() {
   const router = useRouter();
 
   const { mutate, isPending: isAnalyzing, error } = useMutation({
-    mutationFn: analyzeRepo,
-    onSuccess: (data) => {
+    mutationFn: (repoUrl: string) => analyzeRepo(repoUrl, false),
+    onSuccess: () => {
       const serviceType = "custom";
       router.push(`/configure?service=${serviceType}&repo=${encodeURIComponent(repoUrl)}`);
     }

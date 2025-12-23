@@ -23,6 +23,7 @@ def get_cache_service(db: AsyncSession = Depends(get_db)):
 
 class AnalyzeRequest(BaseModel):
     repo_url: str
+    force: bool = False  # If True, bypass cache and force re-analysis
 
 class AnalyzeResponse(BaseModel):
     status: str
@@ -42,9 +43,13 @@ async def analyze_repository(
 
     This endpoint checks the cache first, then performs analysis if needed.
     Results are cached for 1 week to avoid redundant API calls.
-    
+
     Requires authentication - uses user's OpenRouter API key.
     """
+    # DEBUG: Log incoming request
+    logger.info(f"[ANALYZE] Received request from user {current_user.id}")
+    logger.info(f"[ANALYZE] Request data: repo_url={request.repo_url}, force={request.force}")
+
     # CRITICAL: Normalize the URL to ensure consistent cache keys
     # This prevents cache misses due to trailing slashes, case differences, etc.
     raw_url = request.repo_url
@@ -54,11 +59,15 @@ async def analyze_repository(
     if raw_url != normalized_url:
         logger.info(f"  Normalized to: {normalized_url}")
 
-    # Check cache first (using normalized URL)
-    cached_result = await cache_service.get_analysis(normalized_url)
-    if cached_result:
-        logger.info(f"Cache hit for {normalized_url}")
-        return AnalyzeResponse(status="cached", data=cached_result)
+    # Check cache first (using normalized URL), unless force=True
+    cached_result = None
+    if not request.force:
+        cached_result = await cache_service.get_analysis(normalized_url)
+        if cached_result:
+            logger.info(f"Cache hit for {normalized_url}")
+            return AnalyzeResponse(status="cached", data=cached_result)
+    else:
+        logger.info(f"Force re-analysis requested for {normalized_url}, bypassing cache")
 
     # Cache miss - perform analysis (with user's API key)
     logger.info(f"Cache miss for {normalized_url}, performing analysis...")
@@ -96,3 +105,44 @@ async def analyze_repository(
         # Continue anyway - we have the analysis result
 
     return AnalyzeResponse(status="success", data=result)
+
+
+@router.delete("/cache")
+async def clear_analysis_cache(
+    repo_url: str,
+    current_user: User = Depends(get_current_user),
+    cache_service: CacheService = Depends(get_cache_service),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Clear the cached analysis for a specific repository URL.
+    
+    This is useful when you want to force a fresh analysis without
+    waiting for the cache to expire (1 week).
+    
+    Query params:
+        repo_url: The GitHub repository URL to clear from cache
+    """
+    normalized_url = normalize_github_url(repo_url)
+    logger.info(f"Clearing cache for {normalized_url} (requested by user {current_user.id})")
+    
+    try:
+        # Delete from cache
+        from app.models.analysis_cache import AnalysisCache
+        from sqlalchemy import delete
+        
+        stmt = delete(AnalysisCache).where(AnalysisCache.repo_url == normalized_url)
+        result = await db.execute(stmt)
+        await db.commit()
+        
+        if result.rowcount > 0:
+            logger.info(f"Successfully cleared cache for {normalized_url}")
+            return {"status": "success", "message": f"Cache cleared for {normalized_url}"}
+        else:
+            logger.info(f"No cache entry found for {normalized_url}")
+            return {"status": "success", "message": f"No cache entry found for {normalized_url}"}
+    
+    except Exception as e:
+        logger.error(f"Error clearing cache for {normalized_url}: {e}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to clear cache: {str(e)}")

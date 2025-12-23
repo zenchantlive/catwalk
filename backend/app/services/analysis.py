@@ -64,25 +64,19 @@ class AnalysisService:
         )
         
         try:
-            # Construct the tools list with the web search tool
-            tools = [
-                {
-                    "type": "web_search_20250305",
-                    "name": "web_search"
-                }
-            ]
-            
-            # Call the OpenRouter API
+            # Call the OpenRouter API with LIMITED web search to avoid context overflow
+            # Limit to 2 results to stay within 200k token limit (error showed 235k tokens)
             response = await client.chat.completions.create(
-                model=self.model,
+                model=self.model,  # Use base model, not :online suffix
                 messages=[
                     {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT},
                     {"role": "user", "content": f"Analyze this MCP server repository: {repo_url}"}
                 ],
-                tools=tools,
-                # Enforce JSON output for cleaner parsing (if supported by model/provider)
-                # otherwise rely on instructions. Haiku 4.5 usually follows instructions well.
-                # response_format={"type": "json_object"} 
+                # Enable web search with strict limit on results
+                plugins=[{
+                    "id": "web",
+                    "max_results": 2  # Limit to 2 results to avoid context overflow
+                }],
             )
             
             # Extract the content from the response
