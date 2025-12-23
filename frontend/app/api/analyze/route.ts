@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server"
-
 import { auth } from "@/auth"
-import { createBackendAccessToken } from "@/lib/backend-access-token"
 
 const backendUrl =
   process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
@@ -14,13 +12,6 @@ async function forwardToBackend(request: Request): Promise<Response> {
     console.error("[API /analyze] Unauthorized - session missing or incomplete")
     return NextResponse.json({ detail: "Unauthorized" }, { status: 401 })
   }
-
-  const token = await createBackendAccessToken({
-    id: session.user.id,
-    email: session.user.email,
-    name: session.user.name,
-    image: session.user.image,
-  })
 
   // Read request body for forwarding
   const bodyText = request.method === "GET" || request.method === "DELETE" ? undefined : await request.text()
@@ -40,19 +31,23 @@ async function forwardToBackend(request: Request): Promise<Response> {
   const url = new URL(request.url)
   const backendEndpoint = `${backendUrl}/api/analyze${url.search}`
 
+  // Forward relevant headers
+  const contentType = request.headers.get("Content-Type") || "application/json"
+  const accept = request.headers.get("Accept") || "application/json"
+
   const backendResponse = await fetch(backendEndpoint, {
     method: request.method,
     headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+      "Authorization": `Bearer ${session.user.id}`,
+      "X-User-Email": session.user.email,
+      "Content-Type": contentType,
+      "Accept": accept,
     },
     body: bodyText,
     cache: "no-store",
   })
 
-  console.log("[API /analyze] Backend response status:", backendResponse.status)
-
-  // If 422, log response body for debugging
+  // If 422, return error without logging body details which might contain sensitive data
   if (backendResponse.status === 422) {
     const errorText = await backendResponse.text()
     return new Response(errorText, {
@@ -91,6 +86,11 @@ export async function POST(request: Request): Promise<Response> {
 }
 
 export async function GET(request: Request): Promise<Response> {
+  const response = await forwardToBackend(request)
+  return toClientResponse(response)
+}
+
+export async function DELETE(request: Request): Promise<Response> {
   const response = await forwardToBackend(request)
   return toClientResponse(response)
 }

@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     # Used for safety checks (e.g., fail-fast secrets in production)
     ENVIRONMENT: str = "development"
 
+    # Admin Configuration
+    # Comma-separated list of emails authorized for privileged actions (e.g., cache clearing)
+    ADMIN_EMAILS: str = ""
+
     # JWT Authentication (shared with Auth.js frontend)
     # This secret is used to verify JWT tokens from Auth.js (NextAuth v5)
     # MUST match AUTH_SECRET in frontend .env

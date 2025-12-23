@@ -2,6 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from app.services.analysis import AnalysisService # type: ignore
 from app.services.cache import CacheService # type: ignore
+from app.db.session import get_db
+from app.core.config import settings
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.utils.url_helpers import normalize_github_url
 from app.models.user import User
 from app.core.auth import get_current_user
@@ -123,6 +126,13 @@ async def clear_analysis_cache(
     This is useful when you want to force a fresh analysis without
     waiting for the cache to expire (1 week).
     """
+    # Check if user is an admin
+    if settings.ADMIN_EMAILS:
+        admin_emails = [email.strip() for email in settings.ADMIN_EMAILS.split(",") if email.strip()]
+        if current_user.email not in admin_emails:
+            logger.warning(f"Unauthorized cache clear attempt by {current_user.email}")
+            raise HTTPException(status_code=403, detail="You are not authorized to perform this action")
+
     normalized_url = normalize_github_url(repo_url)
     logger.info(f"Clearing cache for {normalized_url} (requested by user {current_user.id})")
     
