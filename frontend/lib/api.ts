@@ -104,7 +104,8 @@ export interface RegistryServer {
         is_official: boolean;
         last_updated: string;
     };
-    install_ref?: string; repository_url?: string;
+    install_ref?: string; 
+    repository_url?: string;
 }
 
 export const registry = {
@@ -114,7 +115,12 @@ export const registry = {
 
         const res = await fetch(`/api/registry/search?${params.toString()}`);
         if (!res.ok) throw new Error("Failed to search registry");
-        return res.json();
+        const servers = await res.json();
+        
+        // Sort servers by name (A-Z)
+        return servers.sort((a: RegistryServer, b: RegistryServer) => 
+            a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+        );
     },
 
     get: async (id: string): Promise<RegistryServer> => {

@@ -13,6 +13,7 @@ from app.schemas.registry import (
     RegistryServerCapabilities,
     RegistryServerTrust,
 )
+from app.services.github_service import get_github_service
 
 logger = logging.getLogger(__name__)
 
@@ -61,10 +62,16 @@ class RegistryService:
         if not force_refresh and self._is_cache_valid():
             # Read from cache with lock? dict reads are atomic in python,
             # but for consistency we can trust the atomic swap pattern used below.
-            return list(self._cache.values())
+            servers = list(self._cache.values())
+            # Enrich with GitHub star data progressively
+            await self._enrich_servers_with_github_data(servers)
+            return servers
         
         await self._fetch_and_cache_registry()
-        return list(self._cache.values())
+        servers = list(self._cache.values())
+        # Enrich with GitHub star data progressively
+        await self._enrich_servers_with_github_data(servers)
+        return servers
 
     async def search_servers(
         self,
@@ -84,6 +91,7 @@ class RegistryService:
             servers = await self.get_servers()
             deployable = [s for s in servers if s.capabilities.deployable]
             deployable = self._disambiguate_display_names(deployable)
+            # GitHub data is already enriched in get_servers()
             return deployable[params.offset : params.offset + params.limit]
 
         # If the user enters a direct ID like "namespace/slug" (or "@namespace/slug"),
@@ -133,6 +141,8 @@ class RegistryService:
                     break
 
         sliced = collected[params.offset : target_count]
+        # Enrich with GitHub star data progressively
+        await self._enrich_servers_with_github_data(sliced)
         return self._disambiguate_display_names(sliced)
 
     async def get_server(self, server_id: str) -> Optional[RegistryServer]:
@@ -153,10 +163,16 @@ class RegistryService:
                 async with self._lock:
                     self._cache[normalized.id] = normalized
                     self._raw_cache[normalized.id] = raw
+                # Enrich with GitHub star data
+                await self._enrich_servers_with_github_data([normalized])
                 return normalized
 
         await self._fetch_and_cache_registry()
-        return self._cache.get(server_id)
+        server = self._cache.get(server_id)
+        if server:
+            # Enrich with GitHub star data
+            await self._enrich_servers_with_github_data([server])
+        return server
 
     def _is_cache_valid(self) -> bool:
         if not self._last_updated:
@@ -546,6 +562,59 @@ class RegistryService:
 
         return result_servers
 
+    async def _enrich_servers_with_github_data(self, servers: List[RegistryServer]) -> None:
+        """
+        Enrich servers with GitHub star count data progressively.
+        
+        This method fetches GitHub star counts for servers that have repository URLs,
+        but does not block if GitHub API is unavailable. It updates the server objects
+        in-place with star count information.
+        
+        Args:
+            servers: List of RegistryServer objects to enrich
+        """
+        if not servers:
+            return
+            
+        github_service = get_github_service()
+        
+        # Process servers concurrently but with reasonable limits
+        semaphore = asyncio.Semaphore(10)  # Limit concurrent GitHub API calls
+        
+        async def enrich_single_server(server: RegistryServer) -> None:
+            async with semaphore:
+                if not server.repository_url:
+                    return
+                    
+                try:
+                    # Check if we need to fetch (no data or data is old)
+                    should_fetch = (
+                        server.star_count is None or 
+                        server.last_star_fetch is None or
+                        datetime.now() - server.last_star_fetch > timedelta(hours=1)
+                    )
+                    
+                    if should_fetch:
+                        star_count = await github_service.get_star_count(server.repository_url)
+                        if star_count is not None:
+                            server.star_count = star_count
+                            server.star_count_formatted = github_service.format_star_count(star_count)
+                            server.last_star_fetch = datetime.now()
+                            
+                            # Update cache
+                            async with self._lock:
+                                if server.id in self._cache:
+                                    self._cache[server.id] = server
+                                    
+                except Exception as e:
+                    # Log but don't fail - GitHub data is optional
+                    logger.debug(f"Failed to fetch GitHub data for {server.id}: {e}")
+        
+        # Execute all enrichment tasks concurrently
+        tasks = [enrich_single_server(server) for server in servers]
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
     def get_raw_server(self, server_id: str) -> Optional[Dict[str, Any]]:
         """Return the raw Glama server payload (used for schema/tool metadata)."""
         return self._raw_cache.get(server_id)
@@ -647,6 +716,108 @@ class RegistryService:
 
         return server.repository_url or server.install_ref
 
+    def _clean_server_name(self, raw_name: str, description: str = "") -> str:
+        """
+        Clean up generic server names to be more descriptive.
+        
+        Examples:
+        - "Remote MCP Server (Authless)" → "Authless Server"
+        - "Remote MCP Server on Cloudflare" → "Cloudflare Server"
+        - "Python MCP Weather Server with OAuth 2.1 Authentication" → "Weather Server with OAuth 2.1"
+        """
+        if not raw_name:
+            return raw_name
+            
+        name = raw_name.strip()
+        
+        # Remove common prefixes that don't add value
+        prefixes_to_remove = [
+            "Remote MCP Server",
+            "MCP Server", 
+            "Python MCP",
+            "Node MCP",
+            "JavaScript MCP"
+        ]
+        
+        for prefix in prefixes_to_remove:
+            if name.startswith(prefix):
+                # Extract the meaningful part after the prefix
+                remainder = name[len(prefix):].strip()
+                
+                # Handle different patterns
+                if remainder.startswith("(") and remainder.endswith(")"):
+                    # "Remote MCP Server (Authless)" → "Authless Server"
+                    content = remainder[1:-1].strip()
+                    if content:
+                        return f"{content} Server"
+                elif remainder.startswith("on "):
+                    # "Remote MCP Server on Cloudflare" → "Cloudflare Server"
+                    platform = remainder[3:].strip()
+                    if platform.startswith("(") and platform.endswith(")"):
+                        # "on Cloudflare (Without Auth)" → "Cloudflare (Without Auth) Server"
+                        return f"{platform[1:-1]} Server"
+                    elif platform:
+                        return f"{platform} Server"
+                elif remainder.startswith("for "):
+                    # "MCP Server for Weather" → "Weather Server"
+                    purpose = remainder[4:].strip()
+                    if purpose:
+                        return f"{purpose} Server"
+                elif remainder.startswith("with "):
+                    # Extract the key feature, but try to keep it concise
+                    feature = remainder[5:].strip()
+                    if feature:
+                        # Try to extract the main purpose from description first
+                        desc_lower = description.lower()
+                        if "weather" in desc_lower:
+                            # Shorten long authentication descriptions
+                            if "oauth" in feature.lower():
+                                return "Weather Server with OAuth"
+                            return f"Weather Server with {feature}"
+                        elif "image" in desc_lower or "vision" in desc_lower or "moondream" in desc_lower:
+                            return "Vision Analysis Server"
+                        else:
+                            # Keep authentication info concise
+                            if "oauth" in feature.lower():
+                                return "Server with OAuth"
+                            return f"Server with {feature}"
+                elif remainder:
+                    # "Python MCP Weather Server" → "Weather Server"
+                    # Remove "Server" suffix if it exists to avoid "Weather Server Server"
+                    clean_remainder = remainder.replace(" Server", "").strip()
+                    return f"{clean_remainder} Server" if clean_remainder else remainder
+                else:
+                    # Just the prefix, try to infer from description
+                    break
+        
+        # If we couldn't clean the prefix, try to infer purpose from description
+        if any(prefix in name for prefix in prefixes_to_remove):
+            desc_lower = description.lower()
+            
+            # Common patterns in descriptions
+            purpose_keywords = {
+                "weather": "Weather Server",
+                "image analysis": "Vision Analysis Server", 
+                "vision": "Vision Analysis Server",
+                "moondream": "Vision Analysis Server",
+                "database": "Database Server",
+                "file": "File Management Server",
+                "browser": "Web Browser Server",
+                "stripe": "Stripe Payments Server",
+                "github": "GitHub Integration Server",
+                "slack": "Slack Integration Server",
+                "email": "Email Server",
+                "calendar": "Calendar Server",
+                "todo": "Task Management Server",
+                "note": "Note Taking Server"
+            }
+            
+            for keyword, purpose in purpose_keywords.items():
+                if keyword in desc_lower:
+                    return purpose
+        
+        return name
+
     def _normalize_glama_server(self, raw: Dict[str, Any]) -> Optional[RegistryServer]:
         namespace = raw.get("namespace")
         slug = raw.get("slug")
@@ -667,14 +838,23 @@ class RegistryService:
         if not isinstance(repo_url, str):
             repo_url = None
 
+        raw_name = raw.get("name") or slug
+        description = raw.get("description", "") or ""
+        cleaned_name = self._clean_server_name(raw_name, description)
+
         return RegistryServer(
             id=full_id,
-            name=raw.get("name") or slug,
+            name=cleaned_name,
             namespace=namespace,
-            description=raw.get("description", "") or "",
+            description=description,
             version=raw.get("version") or "1.0.0",
             homepage=None,
             repository_url=repo_url,
+            
+            # GitHub star count data (will be populated later)
+            star_count=None,
+            star_count_formatted=None,
+            last_star_fetch=None,
             
             capabilities=RegistryServerCapabilities(
                 deployable=(is_remote_capable or is_hybrid) and not is_local_only,
