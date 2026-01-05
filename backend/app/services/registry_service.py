@@ -13,7 +13,7 @@ from app.schemas.registry import (
     RegistryServerCapabilities,
     RegistryServerTrust,
 )
-from app.services.github_service import get_github_service
+
 
 logger = logging.getLogger(__name__)
 
@@ -63,14 +63,10 @@ class RegistryService:
             # Read from cache with lock? dict reads are atomic in python,
             # but for consistency we can trust the atomic swap pattern used below.
             servers = list(self._cache.values())
-            # Enrich with GitHub star data progressively
-            await self._enrich_servers_with_github_data(servers)
             return servers
         
         await self._fetch_and_cache_registry()
         servers = list(self._cache.values())
-        # Enrich with GitHub star data progressively
-        await self._enrich_servers_with_github_data(servers)
         return servers
 
     async def search_servers(
@@ -91,7 +87,6 @@ class RegistryService:
             servers = await self.get_servers()
             deployable = [s for s in servers if s.capabilities.deployable]
             deployable = self._disambiguate_display_names(deployable)
-            # GitHub data is already enriched in get_servers()
             return deployable[params.offset : params.offset + params.limit]
 
         # If the user enters a direct ID like "namespace/slug" (or "@namespace/slug"),
@@ -141,8 +136,6 @@ class RegistryService:
                     break
 
         sliced = collected[params.offset : target_count]
-        # Enrich with GitHub star data progressively
-        await self._enrich_servers_with_github_data(sliced)
         return self._disambiguate_display_names(sliced)
 
     async def get_server(self, server_id: str) -> Optional[RegistryServer]:
@@ -163,15 +156,10 @@ class RegistryService:
                 async with self._lock:
                     self._cache[normalized.id] = normalized
                     self._raw_cache[normalized.id] = raw
-                # Enrich with GitHub star data
-                await self._enrich_servers_with_github_data([normalized])
                 return normalized
 
         await self._fetch_and_cache_registry()
         server = self._cache.get(server_id)
-        if server:
-            # Enrich with GitHub star data
-            await self._enrich_servers_with_github_data([server])
         return server
 
     def _is_cache_valid(self) -> bool:
@@ -562,58 +550,7 @@ class RegistryService:
 
         return result_servers
 
-    async def _enrich_servers_with_github_data(self, servers: List[RegistryServer]) -> None:
-        """
-        Enrich servers with GitHub star count data progressively.
-        
-        This method fetches GitHub star counts for servers that have repository URLs,
-        but does not block if GitHub API is unavailable. It updates the server objects
-        in-place with star count information.
-        
-        Args:
-            servers: List of RegistryServer objects to enrich
-        """
-        if not servers:
-            return
-            
-        github_service = get_github_service()
-        
-        # Process servers concurrently but with reasonable limits
-        semaphore = asyncio.Semaphore(10)  # Limit concurrent GitHub API calls
-        
-        async def enrich_single_server(server: RegistryServer) -> None:
-            async with semaphore:
-                if not server.repository_url:
-                    return
-                    
-                try:
-                    # Check if we need to fetch (no data or data is old)
-                    should_fetch = (
-                        server.star_count is None or 
-                        server.last_star_fetch is None or
-                        datetime.now() - server.last_star_fetch > timedelta(hours=1)
-                    )
-                    
-                    if should_fetch:
-                        star_count = await github_service.get_star_count(server.repository_url)
-                        if star_count is not None:
-                            server.star_count = star_count
-                            server.star_count_formatted = github_service.format_star_count(star_count)
-                            server.last_star_fetch = datetime.now()
-                            
-                            # Update cache
-                            async with self._lock:
-                                if server.id in self._cache:
-                                    self._cache[server.id] = server
-                                    
-                except Exception as e:
-                    # Log but don't fail - GitHub data is optional
-                    logger.debug(f"Failed to fetch GitHub data for {server.id}: {e}")
-        
-        # Execute all enrichment tasks concurrently
-        tasks = [enrich_single_server(server) for server in servers]
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+
 
     def get_raw_server(self, server_id: str) -> Optional[Dict[str, Any]]:
         """Return the raw Glama server payload (used for schema/tool metadata)."""
@@ -850,11 +787,6 @@ class RegistryService:
             version=raw.get("version") or "1.0.0",
             homepage=None,
             repository_url=repo_url,
-            
-            # GitHub star count data (will be populated later)
-            star_count=None,
-            star_count_formatted=None,
-            last_star_fetch=None,
             
             capabilities=RegistryServerCapabilities(
                 deployable=(is_remote_capable or is_hybrid) and not is_local_only,

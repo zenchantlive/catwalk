@@ -19,11 +19,6 @@ class RegistryServer(BaseModel):
     homepage: Optional[str] = None
     repository_url: Optional[str] = None
     
-    # GitHub star count data
-    star_count: Optional[int] = None
-    star_count_formatted: Optional[str] = None
-    last_star_fetch: Optional[datetime] = None
-    
     # Capabilities & Trust
     capabilities: RegistryServerCapabilities
     trust: RegistryServerTrust

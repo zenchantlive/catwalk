@@ -1,13 +1,11 @@
 import asyncio
 import logging
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, Optional, Tuple
 from urllib.parse import urlparse
 
 import httpx
-import redis.asyncio as redis
-from redis.exceptions import RedisError
 
 from app.core.config import settings
 
@@ -16,8 +14,6 @@ logger = logging.getLogger(__name__)
 # GitHub API constants
 GITHUB_API_BASE = "https://api.github.com"
 DEFAULT_TIMEOUT_SECONDS = 10.0
-CACHE_TTL_SECONDS = 3600  # 1 hour
-RATE_LIMIT_WINDOW = 3600  # 1 hour in seconds
 MAX_RETRIES = 3
 BACKOFF_FACTOR = 2
 
@@ -35,35 +31,13 @@ class GitHubService:
     
     Features:
     - URL parsing for various GitHub URL formats
-    - Star count fetching with caching
+    - Star count fetching without caching (simplified)
     - Rate limiting and error handling
     - Exponential backoff for retries
     """
     
     def __init__(self):
-        self._redis_client: Optional[redis.Redis] = None
-        self._redis_available = False
-        
-    async def _get_redis_client(self) -> Optional[redis.Redis]:
-        """Get Redis client with connection validation."""
-        if self._redis_client is None:
-            try:
-                self._redis_client = redis.from_url(
-                    settings.REDIS_URL,
-                    decode_responses=True,
-                    socket_timeout=5.0,
-                    socket_connect_timeout=5.0,
-                )
-                # Test connection
-                await self._redis_client.ping()
-                self._redis_available = True
-                logger.info("Redis connection established")
-            except (RedisError, Exception) as e:
-                logger.warning(f"Redis connection failed: {e}. Proceeding without cache.")
-                self._redis_available = False
-                self._redis_client = None
-                
-        return self._redis_client if self._redis_available else None
+        pass  # No Redis client needed
 
     def parse_github_url(self, url: str) -> Optional[Tuple[str, str]]:
         """
@@ -150,31 +124,8 @@ class GitHubService:
         Returns:
             Star count if successful, None if failed
         """
-        cache_key = f"github:stars:{owner}/{repo}"
-        
-        # Try to get from cache first
-        redis_client = await self._get_redis_client()
-        if redis_client:
-            try:
-                cached_count = await redis_client.get(cache_key)
-                if cached_count is not None:
-                    logger.debug(f"Cache hit for {owner}/{repo}: {cached_count}")
-                    return int(cached_count)
-            except (RedisError, ValueError) as e:
-                logger.warning(f"Cache read error for {owner}/{repo}: {e}")
-
-        # Fetch from GitHub API
-        star_count = await self._fetch_star_count_from_api(owner, repo)
-        
-        # Cache the result if successful
-        if star_count is not None and redis_client:
-            try:
-                await redis_client.setex(cache_key, CACHE_TTL_SECONDS, star_count)
-                logger.debug(f"Cached star count for {owner}/{repo}: {star_count}")
-            except RedisError as e:
-                logger.warning(f"Cache write error for {owner}/{repo}: {e}")
-                
-        return star_count
+        # Fetch directly from GitHub API (no caching)
+        return await self._fetch_star_count_from_api(owner, repo)
 
     async def _fetch_star_count_from_api(self, owner: str, repo: str) -> Optional[int]:
         """
@@ -303,16 +254,9 @@ class GitHubService:
             return None
 
     async def close(self):
-        """Close Redis connection if open."""
-        if self._redis_client:
-            try:
-                await self._redis_client.aclose()
-                logger.debug("Redis connection closed")
-            except Exception as e:
-                logger.warning(f"Error closing Redis connection: {e}")
-            finally:
-                self._redis_client = None
-                self._redis_available = False
+        """Close any connections if needed."""
+        # No Redis connection to close
+        pass
 
 
 # Global service instance

@@ -68,10 +68,6 @@ class Settings(BaseSettings):
     # GitHub token for API access (increases rate limits from 60 to 5000 requests/hour)
     GITHUB_TOKEN: Optional[str] = None
 
-    # Redis Configuration
-    # Redis URL for caching GitHub API responses and other data
-    REDIS_URL: str = "redis://localhost:6379/0"
-
     # CORS Configuration
     # List of allowed origins for CORS. In production, this should restricted.
     # Defaults to allowing all for dev, but validation enforces restrictions in production.
