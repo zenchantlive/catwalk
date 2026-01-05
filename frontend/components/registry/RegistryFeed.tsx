@@ -42,7 +42,7 @@ export default function RegistryFeed() {
                 <div className="relative max-w-2xl mx-auto">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 w-5 h-5" />
                     <Input
-                        placeholder="Search MCP servers (e.g. 'stripe', 'browser')..."
+                        placeholder="Search MCP servers by name, author, or functionality..."
                         className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:bg-white/10 transition-all font-light text-lg h-12 rounded-xl"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -57,15 +57,27 @@ export default function RegistryFeed() {
                 </div>
             ) : servers.length === 0 ? (
                 <div className="text-center py-20 text-white/30">
-                    No servers found matching &quot;{debouncedQuery}&quot;
+                    {debouncedQuery ? (
+                        <>No servers found matching &quot;{debouncedQuery}&quot;</>
+                    ) : (
+                        <>No servers available</>
+                    )}
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {servers.map((server) => (
-                        <div key={server.id} className="h-full">
-                            <ServerCard server={server} />
+                <div className="space-y-4">
+                    {/* Results count */}
+                    {debouncedQuery && (
+                        <div className="text-sm text-white/50 px-1">
+                            Found {servers.length} server{servers.length !== 1 ? 's' : ''} matching &quot;{debouncedQuery}&quot;
                         </div>
-                    ))}
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {servers.map((server) => (
+                            <div key={server.id} className="h-full">
+                                <ServerCard server={server} />
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
         </div>
